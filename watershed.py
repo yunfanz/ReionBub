@@ -6,34 +6,62 @@ from skimage import measure, morphology, segmentation
 from skimage.feature import peak_local_max
 from tocmfastpy import *
 
-def h_transform(arr, h, neighborhood):
-    diff = ndimage.filters.maximum_filter(arr, footprint=neighborhood) - arr
 
-def local_maxima(arr, ionized, threshold_h=0., smooth=2):
+#possibly useful
+#morphology.remove_small_objects
 
-    neighborhood = ndimage.morphology.generate_binary_structure(len(arr.shape),smooth)
-    if False:
-        local_max = (ndimage.filters.maximum_filter(arr, footprint=neighborhood)==arr)
-        background = (arr==0)
-        eroded_background = ndimage.morphology.binary_erosion(
-            background, structure=neighborhood, border_value=1)
-        maxima = local_max ^ eroded_background
+def h_max_transform(arr, neighborhood, mask, h, max_iterations=20):
+    """
+    Brute force function to compute hMaximum smoothing
+    arr: values such as EDT
+    neighborhood: structure to step connected regions
+    mask: maxima of arr
+    """
+    tmp_arr = arr
+    tmp_labels = measure.label(mask)
+    i = 0
+    while i<max_iterations:
+        newmask = ndimage.binary_dilation(mask, structure=neighborhood)
+        diff = ndimage.filters.maximum_filter(tmp_arr, footprint=neighborhood) - tmp_arr
+        newmask = newmask & (diff < h)
+        if not (newmask ^ mask).any(): 
+            print 'h_transform completed in iteration', i
+            break
+        tmp_labels = measure.label(newmask)
+        for region in measure.regionprops(tmp_labels, intensity_image=arr):
+            tmp_arr[(tmp_labels==region.label)] = region.max_intensity 
+        mask = newmask
+        i += 1
+    for region in measure.regionprops(tmp_labels, intensity_image=arr):
+        tmp_arr[(tmp_labels==region.label)] = region.max_intensity - h
+    return tmp_arr
+
+
+def local_maxima(arr, ionized, threshold_h=0.9, connectivity=2):
+
+    neighborhood = ndimage.morphology.generate_binary_structure(len(arr.shape), connectivity)
+    maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False)
+    if threshold_h: 
+        smoothed_arr = h_max_transform(arr, neighborhood, maxima, threshold_h)
+        maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False)
     else:
-        maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False)
+        print "Skipping h_max_transform"
     return maxima #np.where(detected_maxima)
 
 
 def watershed_3d(image):
-    #Creation of the internal Marker
     ionized = image > 0.
+    ionized = ionized*morphology.remove_small_objects(ionized, 6)
     EDT = ndimage.distance_transform_edt(ionized)
-    #marker_internal = apply_func_3d(segmentation.clear_border, marker_internal) #this removes bubbles on the sides
     maxima = local_maxima(EDT, ionized)
     markers = ndimage.label(maxima)[0]
     labels = morphology.watershed(-EDT, markers, mask=ionized)
     
     return labels, markers, EDT
 
+def watershed_21cmBox(path):
+    box = boxio.readbox(path)
+    return watershed_3d(box.box_data)
 
 if __name__ == '__main__':
     b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
