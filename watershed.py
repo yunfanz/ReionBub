@@ -1,6 +1,4 @@
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-import os
+import numpy as np
 from scipy import ndimage
 from skimage import measure, morphology, segmentation
 from skimage.feature import peak_local_max
@@ -18,7 +16,7 @@ def h_max_transform(arr, neighborhood, mask, h, max_iterations=20):
     mask: maxima of arr
     """
     tmp_arr = arr
-    tmp_labels = measure.label(mask)
+    tmp_labels = measure.label(mask, connectivity=2)
     i = 0
     while i<max_iterations:
         newmask = ndimage.binary_dilation(mask, structure=neighborhood)
@@ -27,7 +25,7 @@ def h_max_transform(arr, neighborhood, mask, h, max_iterations=20):
         if not (newmask ^ mask).any(): 
             print 'h_transform completed in iteration', i
             break
-        tmp_labels = measure.label(newmask)
+        tmp_labels = measure.label(newmask, connectivity=2)
         for region in measure.regionprops(tmp_labels, intensity_image=arr):
             tmp_arr[(tmp_labels==region.label)] = region.max_intensity 
         mask = newmask
