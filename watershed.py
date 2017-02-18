@@ -4,7 +4,7 @@ from skimage import measure, morphology, segmentation
 from skimage.feature import peak_local_max
 from tocmfastpy import *
 import pylab as plt
-
+from numba import jit
 #possibly useful
 #morphology.remove_small_objects
 
@@ -40,7 +40,7 @@ def h_max_transform(arr, neighborhood, mask, h, max_iterations=50):
     return tmp_arr
 
 
-def local_maxima(arr, ionized, threshold_h=0.9, connectivity=2):
+def local_maxima(arr, ionized, threshold_h=0.5, connectivity=2, save=None):
 
     neighborhood = ndimage.morphology.generate_binary_structure(len(arr.shape), connectivity)
     maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False)
@@ -49,6 +49,8 @@ def local_maxima(arr, ionized, threshold_h=0.9, connectivity=2):
         maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False)
     else:
         print "Skipping h_max_transform"
+    if True:
+        np.save('smoothed.npy', smoothed_arr)
     return maxima #np.where(detected_maxima)
 
 
@@ -82,7 +84,9 @@ def watershed_21cmBox(path):
 
 if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
-    b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
+    #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
+    PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
+    b1 = boxio.readbox(PATH)
     d1 = b1.box_data#[::5,::5,::5]
     # ionized = d1 > 0.
     # ionized_labels = measure.label(ionized)
