@@ -37,7 +37,7 @@ from vispy.visuals.transforms import STTransform
 if not os.path.exists('./EDT.npy'):
     PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
     d1 = boxio.readbox(PATH).box_data
-    ionized = d1 > 0.99
+    ionized = d1 > 0.995
     ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
     EDT = ndimage.distance_transform_edt(ionized)
     np.save('EDT.npy', EDT)
