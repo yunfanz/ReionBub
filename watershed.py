@@ -52,8 +52,6 @@ def h_max_transform(arr, neighborhood, markers, h, mask=None, connectivity=2, ma
             else:
                 tmp_arr[coord[0], coord[1]] = region.max_intensity
             #also see ndimage.labeled_comprehension
-        print 'next'
-
         markers = newmarkers
         i += 1
     for region in measure.regionprops(tmp_labels, intensity_image=arr):
@@ -71,42 +69,55 @@ def h_max_transform(arr, neighborhood, markers, h, mask=None, connectivity=2, ma
 #     for r in R:
 #         if r.area > 1:
 
-def local_maxima(arr, ionized, threshold_h=0.3, connectivity=2, save=None):
+def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, try_loading=False):
 
     neighborhood = ndimage.morphology.generate_binary_structure(len(arr.shape), connectivity)
     maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
-    if threshold_h: 
-        smoothed_arr = h_max_transform(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
-        maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
+    if try_loading:
+        try:
+            print "loading h_max_transform"
+            smoothed_arr = np.load('smoothed.npy')
+        except: 
+            smoothed_arr = h_max_transform(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
+            np.save('smoothed.npy', smoothed_arr)
     else:
-        print "Skipping h_max_transform"
-    if True:
+        smoothed_arr = h_max_transform(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
         np.save('smoothed.npy', smoothed_arr)
+    maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
     return maxima #np.where(detected_maxima)
 
 
 def watershed_3d(image, connectivity=2):
-    ionized = image > 0.997
+    ionized = image > 0.998
+    Q = np.sum(ionized).astype(np.float32)/image.size #naive filling fraction
     ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
     EDT = ndimage.distance_transform_edt(ionized)
     maxima = local_maxima(EDT.copy(), ionized, connectivity=connectivity)
     markers = measure.label(maxima, connectivity=connectivity)
     labels = morphology.watershed(-EDT, markers, mask=ionized)
     
-    return labels, markers, EDT
+    return labels, markers, EDT, Q
 
-def get_size_dist(labels):
+def get_size_dist(labels, Q, scale=1, log=True):
     R = measure.regionprops(labels)
-    R_eff = np.array([r.equivalent_diameter/2 for r in R])
-
+    R_eff = scale*np.array([r.equivalent_diameter/2 for r in R])
     #R_eff = (3*volumes/4/np.pi)**(1./3)
-    hist,bins = np.histogram(R_eff, normed=True, bins=100)
-    loghist = hist*bins[1:]
-    return loghist, bins
-def plot_dist(labels):
+    if not log:
+        hist,bins = np.histogram(R_eff, normed=True, bins=100)
+    else:
+        bin_edges = np.logspace(-1,2.,100)
+        hist,_ = np.histogram(R_eff, bins=bin_edges, normed=True)
+        bins = (bin_edges[1:]+bin_edges[:-1])/2
+        hist = hist/Q*4*np.pi*(bins)**4/3
+    return hist, bins
+
+def plot_dist(labels, scale=1):
+    """
+    scale is Mpc/pixel
+    """
     R = measure.regionprops(labels)
-    R_eff = np.array([r.equivalent_diameter/2 for r in R])
-    bins = np.logspace(0,2.,100)
+    R_eff = scale*np.array([r.equivalent_diameter/2 for r in R])
+    bins = np.logspace(-1,2.,100)
     sns.distplot(R_eff, hist=False, bins=bins)
 
 def watershed_21cmBox(path):
@@ -117,6 +128,7 @@ if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
     PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
+    #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
     b1 = boxio.readbox(PATH)
     d1 = b1.box_data#[::5,::5,::5]
     # ionized = d1 > 0.
@@ -127,9 +139,10 @@ if __name__ == '__main__':
     # print 'computing cdt'
     # CDT = ndimage.distance_transform_cdt(ionized)
     # print 'computing max'
-    labels, markers, EDT = watershed_3d(d1)
+    scale = float(b1.param_dict['BoxSize'])/b1.param_dict['dim']
+    labels, markers, EDT, Q = watershed_3d(d1)
 
-    #hist, bins = get_size_dist(labels)
+    hist, bins = get_size_dist(labels, Q, scale=scale)
     import IPython; IPython.embed()
     # print 'computing bdt'
     # BDT = ndimage.distance_transform_bf(1-marker_ionized)
