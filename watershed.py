@@ -102,13 +102,15 @@ def get_size_dist(labels, Q, scale=1, log=True):
     R = measure.regionprops(labels)
     R_eff = scale*np.array([r.equivalent_diameter/2 for r in R])
     #R_eff = (3*volumes/4/np.pi)**(1./3)
+
     if not log:
         hist,bins = np.histogram(R_eff, normed=True, bins=100)
     else:
-        bin_edges = np.logspace(-1,2.,100)
+        logR = np.log(R_eff)
+        bin_edges = np.linspace(np.min(logR),np.max(logR),100)
         hist,_ = np.histogram(R_eff, bins=bin_edges, normed=True)
-        bins = (bin_edges[1:]+bin_edges[:-1])/2
-        hist = hist/Q*4*np.pi*(bins)**4/3
+        bins = np.exp((bin_edges[1:]+bin_edges[:-1])/2)
+        hist = hist/Q*4*np.pi*(bins)**3/3
     return hist, bins
 
 def plot_dist(labels, scale=1):
@@ -127,20 +129,20 @@ def watershed_21cmBox(path):
 if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
-    PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
+    #DIR = '../pkgs/21cmFAST/Boxes/'
+    #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
+    DIR = '/data2/21cmFast/lin0_logz10-35_box500_dim500/Boxes/'
+    FILE = 'xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
+    PATH = DIR+FILE
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
     b1 = boxio.readbox(PATH)
     d1 = b1.box_data#[::5,::5,::5]
-    # ionized = d1 > 0.
-    # ionized_labels = measure.label(ionized)
-    # R = measure.regionprops(ionized_labels)
-    # print 'computing edt'
-    # EDT = ndimage.distance_transform_edt(ionized)
-    # print 'computing cdt'
-    # CDT = ndimage.distance_transform_cdt(ionized)
-    # print 'computing max'
     scale = float(b1.param_dict['BoxSize'])/b1.param_dict['dim']
     labels, markers, EDT, Q = watershed_3d(d1)
+    OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(int(np.round(b1.z)))+'.npz'
+    print 'saving', OUTFILE
+    np.savez(OUTFILE, Q=Q, scale=scale, labels=labels, markers=markers, EDT=EDT)
+
 
     hist, bins = get_size_dist(labels, Q, scale=scale)
     import IPython; IPython.embed()
