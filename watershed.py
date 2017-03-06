@@ -69,21 +69,22 @@ def h_max_transform(arr, neighborhood, markers, h, mask=None, connectivity=2, ma
 #     for r in R:
 #         if r.area > 1:
 
-def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, try_loading=False):
+def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, try_loading=False, h_transform=True):
 
     neighborhood = ndimage.morphology.generate_binary_structure(len(arr.shape), connectivity)
     maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
-    if try_loading:
-        try:
-            print "loading h_max_transform"
-            smoothed_arr = np.load('smoothed.npy')
-        except: 
+    if h_transform:
+        if try_loading:
+            try:
+                print "loading h_max_transform"
+                smoothed_arr = np.load('smoothed.npy')
+            except: 
+                smoothed_arr = h_max_transform(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
+                np.save('smoothed.npy', smoothed_arr)
+        else:
             smoothed_arr = h_max_transform(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
             np.save('smoothed.npy', smoothed_arr)
-    else:
-        smoothed_arr = h_max_transform(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
-        np.save('smoothed.npy', smoothed_arr)
-    maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
+        maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
     return maxima #np.where(detected_maxima)
 
 
@@ -131,7 +132,8 @@ if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
     #DIR = '../pkgs/21cmFAST/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
-    DIR = '/data2/21cmFast/lin0_logz10-35_box500_dim500/Boxes/'
+    #DIR = '/data2/21cmFast/lin0_logz10-35_box500_dim500/Boxes/'
+    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
     FILE = 'xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
     PATH = DIR+FILE
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'

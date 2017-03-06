@@ -29,21 +29,38 @@ from tocmfastpy import *
 import numpy as np
 from scipy import ndimage
 from skimage import measure, morphology, segmentation
+from skimage.feature import peak_local_max
 import os
+import watershed
 from vispy import app, scene, io
 from vispy.color import get_colormaps, BaseColormap
 from vispy.visuals.transforms import STTransform
 
-if not os.path.exists('./EDT.npy'):
-    PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
-    d1 = boxio.readbox(PATH).box_data
-    ionized = d1 > 0.995
-    ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
-    EDT = ndimage.distance_transform_edt(ionized)
-    np.save('EDT.npy', EDT)
-else:
-    EDT = np.load('./EDT.npy')
-vol1 = EDT
+def get_data():
+
+    if not os.path.exists('./basins.npy'):
+        PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc'
+        d1 = boxio.readbox(PATH).box_data
+        ionized = d1 > 0.995
+        ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
+        EDT = ndimage.distance_transform_edt(ionized)
+        smoothed_arr = np.load('smoothed.npy')
+        maxima = watershed.local_maxima(smoothed_arr, ionized, h_transform=False)
+        basins = np.where(maxima*EDT>5)
+        basins = np.asarray(basins).T
+        #import IPython; IPython.embed()
+        #basins = morphology.remove_small_objects(maxima, 9)  #speeds up later process
+        #markers = measure.label(maxima, connectivity=2)
+        #R = measure.regionprops(markers)
+        #basins = np.vstack([np.mean(r.coords, axis=0) for r in R])
+        np.save('basins.npy', basins)
+        np.save('EDT.npy', EDT)
+    else:
+        EDT = np.load('./EDT.npy')
+        basins = np.load('./basins.npy')
+    return EDT, basins
+vol1, basins = get_data()
+#import IPython; IPython.embed()
 # Read volume
 #vol1 = np.load(io.load_data_file('volume/stent.npz'))['arr_0']
 # vol2 = np.load(io.load_data_file('brain/mri.npz'))['data']
@@ -62,12 +79,17 @@ view = canvas.central_widget.add_view()
 emulate_texture = False
 
 # Create the volume visuals, only one is visible
-volume1 = scene.visuals.Volume(vol1, parent=view.scene, threshold=5,
+volume1 = scene.visuals.Volume(vol1, parent=view.scene, threshold=0.5,
                                emulate_texture=emulate_texture)
 #volume1.transform = scene.STTransform(translate=(64, 64, 0))
-volume2 = scene.visuals.Volume(vol2, parent=view.scene, threshold=5,
+volume2 = scene.visuals.Volume(vol2, parent=view.scene, threshold=0.5,
                                emulate_texture=emulate_texture)
 volume2.visible = False
+
+scatter = scene.visuals.Markers()
+scatter.set_data(basins, edge_color=None, face_color=(1, 0, 0, 1), size=5)
+view.add(scatter)
+
 
 # Create three cameras (Fly, Turntable and Arcball)
 fov = 60.
