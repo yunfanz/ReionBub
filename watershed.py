@@ -3,15 +3,16 @@ from scipy import ndimage
 from skimage import measure, morphology, segmentation
 from skimage.feature import peak_local_max
 from tocmfastpy import *
-from h_transform import *
+from h_transform_globalsync import *
 import pylab as plt
 import seaborn as sns
 #possibly useful
 #morphology.remove_small_objects
 
-def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, try_loading=False, outfile='smoothed_11.npy', smoothing='hmax'):
+def local_maxima_debug(arr, ionized, threshold_h=0.7, connectivity=2, try_loading=False, outfile='smoothed_11.npy', smoothing='hmax'):
 
     neighborhood = ndimage.morphology.generate_binary_structure(len(arr.shape), connectivity)
+    #maxima = None
     maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
     if smoothing == 'hmax': #smoothing with h-max transform
         if try_loading:
@@ -22,9 +23,10 @@ def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, try_loading=Fals
                 smoothed_arr = h_max_cpu(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
                 np.save(outfile, smoothed_arr)
         else:
-            tarr = h_max_gpu(arr=arr,mask=ionized, maxima=maxima, h=threshold_h, n_iter=100)
-            #import IPython; IPython.embed()
-            smoothed_arr = h_max_cpu(tarr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=2)
+            tarr, tmaxima = h_max_gpu(arr=arr,mask=ionized, maxima=maxima, h=threshold_h, n_iter=100)
+            
+            smoothed_arr = h_max_cpu(tarr, neighborhood, tmaxima, threshold_h, mask=ionized, connectivity=2, max_iterations=5)
+            import IPython; IPython.embed()
             np.save(outfile, smoothed_arr)
         maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
     elif smoothing == 'bin':
@@ -40,17 +42,25 @@ def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, try_loading=Fals
             n_reg = m_reg
     return maxima #np.where(detected_maxima)
 
+def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, save=False, outfile='smoothed_11.npy'):
+
+    s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=150)
+    if save: np.save(outfile, s_arr)
+
+    return maxima #np.where(detected_maxima)
 
 def watershed_3d(image, connectivity=2, smoothing='hmax'):
-    ionized = image == 1.
-    Q = np.sum(ionized).astype(np.float32)/image.size #naive filling fraction
-    ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
+    ionized = (image == 1.)
+    #Q = np.sum(ionized).astype(np.float32)/image.size #naive filling fraction
+    #ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
+    print 'Computing EDT'
     EDT = ndimage.distance_transform_edt(ionized)
-    maxima = local_maxima(EDT.copy(), ionized, connectivity=connectivity, smoothing=smoothing)
+    maxima = local_maxima(EDT.copy(), ionized, connectivity=connectivity)
     markers = measure.label(maxima, connectivity=connectivity)
+    print 'Computing watershed'
     labels = morphology.watershed(-EDT, markers, mask=ionized)
     
-    return labels, markers, EDT, Q
+    return labels, markers, EDT, 1
 
 def _get_var(Q, logR):
     R = np.exp(logR)
@@ -116,9 +126,9 @@ if __name__ == '__main__':
     #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
     #DIR = '/data2/21cmFast/lin0_logz10-35_box500_dim500/Boxes/'
     DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-    #FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
+    FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
-    FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
+    #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     PATH = DIR+FILE
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
     b1 = boxio.readbox(PATH)
@@ -126,8 +136,10 @@ if __name__ == '__main__':
     scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
     labels, markers, EDT, Q = watershed_3d(d1, smoothing='hmax')
     OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(int(np.round(b1.z)))+'.npz'
+    Q_a = 1 - b1.param_dict['nf']
+    print Q, Q_a
     print 'saving', OUTFILE
-    np.savez(OUTFILE, Q=Q, scale=scale, labels=labels, markers=markers, EDT=EDT)
+    np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT)
 
 
     hist, bins = get_size_dist(labels, Q, scale=scale)
