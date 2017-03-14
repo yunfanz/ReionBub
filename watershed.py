@@ -6,6 +6,7 @@ from tocmfastpy import *
 from h_transform_globalsync import *
 import pylab as plt
 import seaborn as sns
+import ws_gpu
 #possibly useful
 #morphology.remove_small_objects
 
@@ -47,7 +48,7 @@ def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, save=False, outf
     s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=150)
     if save: np.save(outfile, s_arr)
 
-    return maxima #np.where(detected_maxima)
+    return maxima, s_arr #np.where(detected_maxima)
 
 def watershed_3d(image, connectivity=2, smoothing='hmax'):
     ionized = (image == 1.)
@@ -55,10 +56,18 @@ def watershed_3d(image, connectivity=2, smoothing='hmax'):
     #ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
     print 'Computing EDT'
     EDT = ndimage.distance_transform_edt(ionized)
-    maxima = local_maxima(EDT.copy(), ionized, connectivity=connectivity)
-    markers = measure.label(maxima, connectivity=connectivity)
+    maxima, sm_EDT = local_maxima(EDT.copy(), ionized, connectivity=connectivity)
+    
     print 'Computing watershed'
-    labels = morphology.watershed(-EDT, markers, mask=ionized)
+    if True:
+        labels = ws_gpu.watershed(-sm_EDT[100])
+        labels2 = ws_gpu.watershed(-sm_EDT[...,100])
+        import IPython; IPython.embed()
+    else:
+        markers = measure.label(maxima, connectivity=connectivity)
+        labels = morphology.watershed(-EDT, markers, mask=ionized)
+    
+
     
     return labels, markers, EDT, 1
 
@@ -124,9 +133,9 @@ if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
     #DIR = '../pkgs/21cmFAST/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
-    #DIR = '/data2/21cmFast/lin0_logz10-35_box500_dim500/Boxes/'
-    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-    FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
+    DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
+    #DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+    FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     PATH = DIR+FILE
