@@ -6,7 +6,7 @@ from tocmfastpy import *
 from h_transform_globalsync import *
 import pylab as plt
 import seaborn as sns
-import ws_gpu
+import ws_gpu, edt_cuda
 #possibly useful
 #morphology.remove_small_objects
 
@@ -55,7 +55,9 @@ def watershed_3d(image, connectivity=2, smoothing='hmax'):
     #Q = np.sum(ionized).astype(np.float32)/image.size #naive filling fraction
     #ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
     print 'Computing EDT'
-    EDT = ndimage.distance_transform_edt(ionized)
+    #EDT = ndimage.distance_transform_edt(ionized)
+    EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
+    import IPython; IPython.embed()
     maxima, sm_EDT = local_maxima(EDT.copy(), ionized, connectivity=connectivity)
     
     print 'Computing watershed'
@@ -133,10 +135,10 @@ if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
     #DIR = '../pkgs/21cmFAST/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
-    DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
-    #DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-    FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
-    #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
+    #DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
+    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+    #FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
+    FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     PATH = DIR+FILE
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
