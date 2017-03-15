@@ -157,7 +157,8 @@ if __name__ == '__main__':
         d1 = 1 - b1.box_data#[::5,::5,::5]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         labels, markers, EDT, sm_EDT = watershed_3d(d1, smoothing='hmax')
-        OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(np.round(b1.z))+'.npz'
+        #OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(b1.z)+'.npz'
+        OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
         Q_a = 1 - b1.param_dict['nf']
         print Q_a
         print 'saving', OUTFILE
