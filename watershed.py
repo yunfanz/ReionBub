@@ -153,6 +153,7 @@ if __name__ == '__main__':
     files = find_files(DIR)
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
     for path in files:
+	print 'Processing', path
         b1 = boxio.readbox(path)
         d1 = 1 - b1.box_data#[::5,::5,::5]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
