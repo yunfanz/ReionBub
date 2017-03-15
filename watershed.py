@@ -55,13 +55,13 @@ def watershed_3d(image, connectivity=2, smoothing='hmax'):
     #Q = np.sum(ionized).astype(np.float32)/image.size #naive filling fraction
     #ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
     print 'Computing EDT'
-    #EDT = ndimage.distance_transform_edt(ionized)
-    EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
-    import IPython; IPython.embed()
+    EDT = ndimage.distance_transform_edt(ionized)
+    #EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
+    #import IPython; IPython.embed()
     maxima, sm_EDT = local_maxima(EDT.copy(), ionized, connectivity=connectivity)
     
     print 'Computing watershed'
-    if True:
+    if False:
         labels = ws_gpu.watershed(-sm_EDT[100])
         labels2 = ws_gpu.watershed(-sm_EDT[...,100])
         import IPython; IPython.embed()
@@ -71,7 +71,7 @@ def watershed_3d(image, connectivity=2, smoothing='hmax'):
     
 
     
-    return labels, markers, EDT, 1
+    return labels, markers, EDT, sm_EDT
 
 def _get_var(Q, logR):
     R = np.exp(logR)
@@ -130,30 +130,42 @@ def watershed_21cmBox(path):
     box = boxio.readbox(path)
     return watershed_3d(box.box_data)
 
+def find_files(directory, pattern='xH_nohalos_*'):
+    '''Recursively finds all files matching the pattern.'''
+    files = []
+    for root, dirnames, filenames in os.walk(directory):
+        for filename in fnmatch.filter(filenames, pattern):
+            files.append(os.path.join(root, filename))
+    return files
+
 if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
     #DIR = '../pkgs/21cmFAST/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
-    #DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
-    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+    DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
+    #DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
     FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     PATH = DIR+FILE
+    files = find_files(DIR)
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
-    b1 = boxio.readbox(PATH)
-    d1 = 1 - b1.box_data#[::5,::5,::5]
-    scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
-    labels, markers, EDT, Q = watershed_3d(d1, smoothing='hmax')
-    OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(int(np.round(b1.z)))+'.npz'
-    Q_a = 1 - b1.param_dict['nf']
-    print Q, Q_a
-    print 'saving', OUTFILE
-    np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT)
+    for path in files:
+        b1 = boxio.readbox(path)
+        d1 = 1 - b1.box_data#[::5,::5,::5]
+        scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
+        labels, markers, EDT, sm_EDT = watershed_3d(d1, smoothing='hmax')
+        OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(np.round(b1.z))+'.npz'
+        Q_a = 1 - b1.param_dict['nf']
+        print Q_a
+        print 'saving', OUTFILE
+        np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=sm_EDT)
 
 
-    hist, bins = get_size_dist(labels, Q, scale=scale)
+    #hist, bins = get_size_dist(labels, Q, scale=scale)
+
+
     #import IPython; IPython.embed()
     # print 'computing bdt'
     # BDT = ndimage.distance_transform_bf(1-marker_ionized)
