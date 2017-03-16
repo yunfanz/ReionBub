@@ -66,7 +66,7 @@ def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):
         maxima, smEDT = local_maxima_gpu(EDT.copy(), ionized, connectivity=connectivity, threshold_h=h)
         print 'Computing watershed'
         if True:
-            labels = ws3d_gpu.watershed(-smEDT, mask=ionized)
+            labels = ws3d_gpu.watershed(-EDT, mask=ionized)
             import IPython; IPython.embed()
             markers = 0
         else:
@@ -148,6 +148,49 @@ def find_files(directory, pattern='xH_nohalos_*'):
             files.append(os.path.join(root, filename))
     return files
 
+def mc_test(N=1000,SIZE=200):
+    x, y, z = np.indices((SIZE, SIZE,SIZE))
+    image = np.zeros_like(x)
+    print image.shape
+    for n in xrange(N):
+        x1, y1, z1 = np.random.randint(0,SIZE, size=3)
+        r1 = np.random.randint(1,SIZE/10)
+        mask_circle1 = (x - x1)**2 + (y - y1)**2 + (z - z1)**2< r1**2
+        image = np.logical_or(mask_circle1, image)
+
+    distance = ndimage.distance_transform_edt(image)
+    # local_maxi = peak_local_max(distance, labels=image,
+    #                          footprint=np.ones((3, 3, 3)),
+    #                          indices=False)
+    # markers = ndimage.label(local_maxi)[0]
+    # labels = morphology.watershed(-distance, markers, mask=image)
+    sd, maxima = h_max_gpu(arr=distance,mask=image, maxima=None, h=2, n_iter=150)
+    labels = ws3d_gpu.watershed(-sd, mask=image)
+    flabels = ws3d_gpu.watershed(-distance, mask=image)
+    import matplotlib
+    carr = np.random.rand(256, 3); carr[0,:] = 0
+    cmap = matplotlib.colors.ListedColormap(carr)
+    import IPython; IPython.embed()
+
+def circle_test():
+    x, y, z = np.indices((80, 80,80))
+    x1, y1, z1, x2, y2, z2 = 28, 28,50, 44, 52,54
+    r1, r2 = 26, 40
+    mask_circle1 = (x - x1)**2 + (y - y1)**2 + (z - z1)**2< r1**2
+    mask_circle2 = (x - x2)**2 + (y - y2)**2 + (z - z2)**2< r2**2
+    image = np.logical_or(mask_circle1, mask_circle2)
+    # Now we want to separate the two objects in image
+    # Generate the markers as local maxima of the distance
+    # to the background
+    distance = ndimage.distance_transform_edt(image)
+    local_maxi = peak_local_max(distance, labels=image,
+                             footprint=np.ones((3, 3, 3)),
+                             indices=False)
+    markers = ndimage.label(local_maxi)[0]
+    labels = morphology.watershed(-distance, markers, mask=image)
+    flabels = ws3d_gpu.watershed(-distance, mask=image)
+    import IPython; IPython.embed()
+
 
 
 
@@ -163,6 +206,7 @@ if __name__ == '__main__':
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     PATH = DIR+FILE
     files = find_files(DIR)
+    #mc_test()
 
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
 

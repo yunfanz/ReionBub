@@ -69,6 +69,19 @@ __global__ void get_max(float *C, float *M, bool *Mask, bool *maxima)
                                 k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right};
             neighbors = neigh2;
             break;
+          case 3:
+            n_neigh = 26;
+            int neigh3 [26] = {k*n_x*n_x+j*n_x+i_left, k*n_x*n_x+j_down*n_x+i, k*n_x*n_x+j*n_x+i_right,
+                                k*n_x*n_x+j_up*n_x+i, k_down*n_x*n_x+j*n_x+i, k_up*n_x*n_x+j*n_x+i,
+                                k*n_x*n_x+j_up*n_x+i_left, k*n_x*n_x+j_down*n_x+i_left, k*n_x*n_x+j_down*n_x+i_right,
+                                k*n_x*n_x+j_up*n_x+i_right, k_down*n_x*n_x+j_down*n_x+i, k_up*n_x*n_x+j_down*n_x+i,
+                                k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
+                                k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right,
+                                k_up*n_x*n_x+j_up*n_x+i_right, k_up*n_x*n_x+j_down*n_x+i_right, k_down*n_x*n_x+j_up*n_x+i_right
+                                k_down*n_x*n_x+j_down*n_x+i_right, k_up*n_x*n_x+j_up*n_x+i_left, k_up*n_x*n_x+j_down*n_x+i_left,
+                                k_down*n_x*n_x+j_up*n_x+i_left, k_down*n_x*n_x+j_down*n_x+i_left,};
+            neighbors = neigh26;
+            break;
           default:
             n_neigh = 18;
             int neighd [18] = {k*n_x*n_x+j*n_x+i_left, k*n_x*n_x+j_down*n_x+i, k*n_x*n_x+j*n_x+i_right,
@@ -131,6 +144,19 @@ __global__ void update(float *C, float *M, bool *Mask, bool *maxima)
                                 k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
                                 k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right};
             neighbors = neigh2;
+            break;
+          case 3:
+            n_neigh = 26;
+            int neigh3 [26] = {k*n_x*n_x+j*n_x+i_left, k*n_x*n_x+j_down*n_x+i, k*n_x*n_x+j*n_x+i_right,
+                                k*n_x*n_x+j_up*n_x+i, k_down*n_x*n_x+j*n_x+i, k_up*n_x*n_x+j*n_x+i,
+                                k*n_x*n_x+j_up*n_x+i_left, k*n_x*n_x+j_down*n_x+i_left, k*n_x*n_x+j_down*n_x+i_right,
+                                k*n_x*n_x+j_up*n_x+i_right, k_down*n_x*n_x+j_down*n_x+i, k_up*n_x*n_x+j_down*n_x+i,
+                                k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
+                                k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right,
+                                k_up*n_x*n_x+j_up*n_x+i_right, k_up*n_x*n_x+j_down*n_x+i_right, k_down*n_x*n_x+j_up*n_x+i_right
+                                k_down*n_x*n_x+j_down*n_x+i_right, k_up*n_x*n_x+j_up*n_x+i_left, k_up*n_x*n_x+j_down*n_x+i_left,
+                                k_down*n_x*n_x+j_up*n_x+i_left, k_down*n_x*n_x+j_down*n_x+i_left,};
+            neighbors = neigh26;
             break;
           default:
             n_neigh = 18;

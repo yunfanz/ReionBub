@@ -11,8 +11,8 @@
 // Texture memory for image.
 texture<float,3> img;
 // Neighbour pixel generator (N-W to W order).
-__constant__ int N_xs[26] = {-1,0,1,1,1,0,-1,-1,0,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,0};
-__constant__ int N_ys[26] = {-1,-1,-1,0,1,1,1,0,0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,0};
+__constant__ int N_xs[26] = {0,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,0};
+__constant__ int N_ys[26] = {0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,0};
 __constant__ int N_zs[26] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1};
 
 // Step 1.
@@ -31,9 +31,9 @@ __global__ void descent_kernel(float* labeled, const int w, const int h, const i
   //int new_w = w + w * 2;
   //int new_h = h + h * 2;
   //int new_d = d + d * 2;
-  int new_w = w + w/(bdx-2)*2;
-  int new_h = h + h/(bdy-2)*2;
-  int new_d = d + d/(bdz-2)*2;
+  int new_w = w + w/(bdx-2)*2+1;
+  int new_h = h + h/(bdy-2)*2+1;
+  int new_d = d + d/(bdz-2)*2+1;
   int p = INDEX(img_z,img_y,img_x,w);
 
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
@@ -108,9 +108,9 @@ __global__ void minima_kernel(float* L, int* C, const int w, const int h, const 
   //int new_w = w + w * 2;
   //int new_h = h + h * 2;
   //int new_d = d + d * 2;
-  int new_w = w + w/(bdx-2)*2;
-  int new_h = h + h/(bdy-2)*2;
-  int new_d = d + d/(bdz-2)*2;
+  int new_w = w + w/(bdx-2)*2+1;
+  int new_h = h + h/(bdy-2)*2+1;
+  int new_d = d + d/(bdz-2)*2+1;
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
   tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
 
@@ -161,9 +161,9 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
   //int new_w = w + w * 2;
   //int new_h = h + h * 2;
   //int new_d = d + d * 2;
-  int new_w = w + w/(bdx-2)*2;
-  int new_h = h + h/(bdy-2)*2;
-  int new_d = d + d/(bdz-2)*2;
+  int new_w = w + w/(bdx-2)*2+1;
+  int new_h = h + h/(bdy-2)*2+1;
+  int new_d = d + d/(bdz-2)*2+1;
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
   tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
 
