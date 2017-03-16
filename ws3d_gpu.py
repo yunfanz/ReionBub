@@ -11,7 +11,6 @@ kernel_source = open("watershed.cu").read()
 main_module = nvcc.SourceModule(kernel_source)
 descent_kernel = main_module.get_function("descent_kernel")
 image_texture = main_module.get_texref("img")
-mask_texture = main_module.get_texref("mask")
 plateau_kernel = main_module.get_function("plateau_kernel")
 minima_kernel = main_module.get_function("minima_kernel")
 flood_kernel = main_module.get_function("flood_kernel")
@@ -24,19 +23,19 @@ def watershed(I, mask=None):
   height, width, depth = I.shape
   I = np.float32(I.copy())
   if mask is None:
-    mask = np.ones(I.shape, dtype=bool)
+    mask = np.ones(I.shape)
 
   # Get block/grid size for steps 1-3.
   block_size =  (8,8,8)
-  grid_size =   (width/(block_size[0]-2),
-                height/(block_size[0]-2),
-                depth/(block_size[0]-2))
+  grid_size =   (width/(block_size[0]-2)+1,
+                height/(block_size[0]-2)+1,
+                depth/(block_size[0]-2)+1)
 
   # Get block/grid size for step 4.
   block_size2 = (8,8,8)
-  grid_size2  = (width/(block_size2[0]-2),
-                height/(block_size2[0]-2),
-                depth/(block_size[0]-2))
+  grid_size2  = (width/(block_size2[0]-2)+1,
+                height/(block_size2[0]-2)+1,
+                depth/(block_size2[0]-2)+1)
 
   # Initialize variables.
   labeled       = np.zeros([height,width,depth]) 

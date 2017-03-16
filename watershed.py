@@ -63,15 +63,17 @@ def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):
         EDT = ndimage.distance_transform_edt(ionized)
         #EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
         #import IPython; IPython.embed()
+        maxima, smEDT = local_maxima_gpu(EDT.copy(), ionized, connectivity=connectivity, threshold_h=h)
         print 'Computing watershed'
         if True:
-            labels = ws3d_gpu.watershed(-EDT)
+            labels = ws3d_gpu.watershed(-smEDT, mask=ionized)
             import IPython; IPython.embed()
             markers = 0
         else:
-            maxima, smEDT = local_maxima_gpu(EDT.copy(), ionized, connectivity=connectivity, threshold_h=h)
             markers = measure.label(maxima, connectivity=connectivity)
-            labels = morphology.watershed(-EDT, markers, mask=ionized)
+            labels = morphology.watershed(-smEDT, markers, mask=ionized)
+            #flabels = morphology.watershed(-smEDT, markers, mask=np.ones_like(ionized))
+            import IPython; IPython.embed()
     elif target == 'cpu':
         print 'Computing EDT'
         EDT = ndimage.distance_transform_edt(ionized)
@@ -153,10 +155,10 @@ if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
     #DIR = '../pkgs/21cmFAST/Boxes/'
-    #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
-    DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
-    #DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-    FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
+    FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
+    #DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
+    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+    #FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     PATH = DIR+FILE
