@@ -10,7 +10,6 @@
 
 // Texture memory for image.
 texture<float,3> img;
-texture<float,3> mask;
 // Neighbour pixel generator (N-W to W order).
 __constant__ int N_xs[26] = {-1,0,1,1,1,0,-1,-1,0,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,0};
 __constant__ int N_ys[26] = {-1,-1,-1,0,1,1,1,0,0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,0};
@@ -46,16 +45,14 @@ __global__ void descent_kernel(float* labeled, const int w, const int h, const i
      (bz == (d / size - 1) && tz == bdz - 1)) {
        s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = INF;
   } else {
-     //s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = tex3D(img,img_x,img_y,img_z);
-     s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = tex3D(img,img_z,img_y,img_x);
+     s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = tex3D(img,img_x,img_y,img_z);
   }
 
   __syncthreads();
 
   if (j < new_h && i < new_w && k < new_d && ghost == 0) {
     float I_q_min = INF;
-    //float I_p = tex3D(img,img_x,img_y,img_z);
-    float I_p = tex3D(img,img_z,img_y,img_x);
+    float I_p = tex3D(img,img_x,img_y,img_z);
     int exists_q = 0;
 
     for (int kk = 0; kk < 26; kk++) {
@@ -185,8 +182,7 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
 
   if (j < new_h && i < new_w && k < new_d &&
     s_L[p] == PLATEAU && ghost == 0) {
-    //float I_p = tex3D(img,img_x,img_y,img_z); 
-    float I_p = tex3D(img,img_z,img_y,img_x);
+    float I_p = tex3D(img,img_x,img_y,img_z); 
     float I_q;
     int n_x, n_y, n_z; float L_q;
 
@@ -196,8 +192,7 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
       if (L_q == INF || L_q >= 0) continue;
       int n_tx = L2I(i,n_x); int n_ty = L2I(j,n_y); int n_tz = L2I(k,n_z);
       int q = INDEX(n_tz,n_ty,n_tx,w);
-      //I_q = tex3D(img,n_tx,n_ty,n_tz);
-      I_q = tex3D(img,n_tz,n_ty,n_tx);
+      I_q = tex3D(img,n_tx,n_ty,n_tz);
       if (I_q == I_p && L[true_p] != -q) {
         L[true_p] = -q; 
         atomicAdd(&C[0], 1); 
