@@ -7,7 +7,8 @@ from tocmfastpy import *
 from h_transform_globalsync import *
 import pylab as plt
 import seaborn as sns
-import ws_gpu, edt_cuda
+import ws3d_gpu, edt_cuda
+from joblib import Parallel, delayed
 #possibly useful
 #morphology.remove_small_objects
 
@@ -25,54 +26,60 @@ def local_maxima_debug(arr, ionized, threshold_h=0.7, connectivity=2, try_loadin
                 smoothed_arr = h_max_cpu(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=connectivity)
                 np.save(outfile, smoothed_arr)
         else:
-            tarr, tmaxima = h_max_gpu(arr=arr,mask=ionized, maxima=maxima, h=threshold_h, n_iter=100)
-            
-            smoothed_arr = h_max_cpu(tarr, neighborhood, tmaxima, threshold_h, mask=ionized, connectivity=2, max_iterations=5)
-            import IPython; IPython.embed()
+            smoothed_arr = h_max_cpu(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=2, max_iterations=5)
             np.save(outfile, smoothed_arr)
         maxima = peak_local_max(smoothed_arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
-    elif smoothing == 'bin':
-        print 'Smoothing field with binary dilation'
-        n_reg = 0
-        m_reg = 1000
-        while True:
-            maxima = ionized & ndimage.binary_dilation(maxima, structure=neighborhood, iterations=1) #smoothing with binary dilation
-            tmp_labels = measure.label(maxima, connectivity=connectivity)
-            m_reg = len(measure.regionprops(tmp_labels))
-            print m_reg
-            if m_reg == n_reg: break
-            n_reg = m_reg
+    # elif smoothing == 'bin':
+    #     print 'Smoothing field with binary dilation'
+    #     n_reg = 0
+    #     m_reg = 1000
+    #     while True:
+    #         maxima = ionized & ndimage.binary_dilation(maxima, structure=neighborhood, iterations=1) #smoothing with binary dilation
+    #         tmp_labels = measure.label(maxima, connectivity=connectivity)
+    #         m_reg = len(measure.regionprops(tmp_labels))
+    #         print m_reg
+    #         if m_reg == n_reg: break
+    #         n_reg = m_reg
     return maxima #np.where(detected_maxima)
 
-def local_maxima(arr, ionized, threshold_h=0.7, connectivity=2, save=False, outfile='smoothed_11.npy'):
+def local_maxima_cpu(arr, ionized, threshold_h=0.7, connectivity=2, save=False, outfile='smoothed_11.npy'):
+    neighborhood = ndimage.morphology.generate_binary_structure(len(arr.shape), connectivity)
+    maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
+    if threshold_h > 0:
+        arr = h_max_cpu(arr, neighborhood, maxima, threshold_h, mask=ionized, connectivity=2, max_iterations=50)
+        maxima = peak_local_max(arr, labels=ionized, footprint=neighborhood, indices=False, exclude_border=False)
 
+    return maxima, arr
+
+def local_maxima_gpu(arr, ionized, threshold_h=0.7, connectivity=2):
     s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=150)
-    if save: np.save(outfile, s_arr)
+    return maxima, s_arr
 
-    return maxima, s_arr #np.where(detected_maxima)
-
-def watershed_3d(image, connectivity=2, smoothing='hmax'):
+def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):
     ionized = (image == 1.)
-    #Q = np.sum(ionized).astype(np.float32)/image.size #naive filling fraction
     #ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
-    print 'Computing EDT'
-    EDT = ndimage.distance_transform_edt(ionized)
-    #EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
-    #import IPython; IPython.embed()
-    maxima, sm_EDT = local_maxima(EDT.copy(), ionized, connectivity=connectivity)
-    
-    print 'Computing watershed'
-    if False:
-        labels = ws_gpu.watershed(-sm_EDT[100])
-        labels2 = ws_gpu.watershed(-sm_EDT[...,100])
-        import IPython; IPython.embed()
-    else:
+    if target == 'cuda' or target == 'gpu':
+        print 'Computing EDT'
+        EDT = ndimage.distance_transform_edt(ionized)
+        #EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
+        #import IPython; IPython.embed()
+        print 'Computing watershed'
+        if True:
+            labels = ws3d_gpu.watershed(-EDT)
+            import IPython; IPython.embed()
+            markers = 0
+        else:
+            maxima, smEDT = local_maxima_gpu(EDT.copy(), ionized, connectivity=connectivity, threshold_h=h)
+            markers = measure.label(maxima, connectivity=connectivity)
+            labels = morphology.watershed(-EDT, markers, mask=ionized)
+    elif target == 'cpu':
+        print 'Computing EDT'
+        EDT = ndimage.distance_transform_edt(ionized)
+        maxima, smEDT = local_maxima_cpu(EDT.copy(), ionized, connectivity=connectivity, threshold_h=h)
+        print 'Computing watershed'
         markers = measure.label(maxima, connectivity=connectivity)
         labels = morphology.watershed(-EDT, markers, mask=ionized)
-    
-
-    
-    return labels, markers, EDT, sm_EDT
+    return labels, markers, EDT, smEDT
 
 def _get_var(Q, logR):
     R = np.exp(logR)
@@ -139,6 +146,9 @@ def find_files(directory, pattern='xH_nohalos_*'):
             files.append(os.path.join(root, filename))
     return files
 
+
+
+
 if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
@@ -146,30 +156,52 @@ if __name__ == '__main__':
     #FILE = 'xH_nohalos_z010.00_nf0.873649_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_250Mpc'
     DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
     #DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-    #FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
-    FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
+    FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
+    #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     PATH = DIR+FILE
     files = find_files(DIR)
+
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
-    for path in files:
-	print 'Processing', path
+
+    # def execute(path, replace=True):
+	   # print 'Processing', path
+    #     b1 = boxio.readbox(path)
+    #     d1 = 1 - b1.box_data#[::5,::5,::5]
+    #     scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
+    #     OUTFILE = b1.param_dict['basedir']+'/cpuwatershed_z{0}.npz'.format(b1.z)
+    #     if (not replace) and os.path.exists(OUTFILE):
+    #         print 'File exists, skipping'
+    #         return
+
+    #     labels, markers, EDT, smEDT = watershed_3d(d1, h=-1, target='cpu')
+    #     #OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(b1.z)+'.npz'
+    #     Q_a = 1 - b1.param_dict['nf']
+    #     print Q_a
+    #     print 'saving', OUTFILE
+    #     np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=smEDT)
+
+    # Parallel(n_jobs=4)(delayed(execute)(path) for path in files)
+
+    for path in [PATH]:
+        print 'Processing', path
         b1 = boxio.readbox(path)
         d1 = 1 - b1.box_data#[::5,::5,::5]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
-        labels, markers, EDT, sm_EDT = watershed_3d(d1, smoothing='hmax')
+        OUTFILE = b1.param_dict['basedir']+'/1watershed_z{0}.npz'.format(b1.z)
+
+        labels, markers, EDT, smEDT = watershed_3d(d1, h=1., target='gpu')
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(b1.z)+'.npz'
-        OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
         Q_a = 1 - b1.param_dict['nf']
         print Q_a
         print 'saving', OUTFILE
-        np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=sm_EDT)
+        #np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=smEDT)
 
 
     #hist, bins = get_size_dist(labels, Q, scale=scale)
 
 
-    #import IPython; IPython.embed()
+    import IPython; IPython.embed()
     # print 'computing bdt'
     # BDT = ndimage.distance_transform_bf(1-marker_ionized)
     # import pylab as plt

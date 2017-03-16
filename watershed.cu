@@ -29,9 +29,12 @@ __global__ void descent_kernel(float* labeled, const int w, const int h, const i
   int img_x = L2I(i,tx);
   int img_y = L2I(j,ty);
   int img_z = L2I(k,tz);
-  int new_w = w + w * 2;
-  int new_h = h + h * 2;
-  int new_d = d + d * 2;
+  //int new_w = w + w * 2;
+  //int new_h = h + h * 2;
+  //int new_d = d + d * 2;
+  int new_w = w + w/(bdx-2)*2;
+  int new_h = h + h/(bdy-2)*2;
+  int new_d = d + d/(bdz-2)*2;
   int p = INDEX(img_z,img_y,img_x,w);
 
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
@@ -43,15 +46,16 @@ __global__ void descent_kernel(float* labeled, const int w, const int h, const i
      (bz == (d / size - 1) && tz == bdz - 1)) {
        s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = INF;
   } else {
-     s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = tex3D(img,img_x,img_y,img_z);
+     //s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = tex3D(img,img_x,img_y,img_z);
+     s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = tex3D(img,img_z,img_y,img_x);
   }
 
   __syncthreads();
 
   if (j < new_h && i < new_w && k < new_d && ghost == 0) {
     float I_q_min = INF;
-    float I_p = tex3D(img,img_x,img_y,img_z);
-  
+    //float I_p = tex3D(img,img_x,img_y,img_z);
+    float I_p = tex3D(img,img_z,img_y,img_x);
     int exists_q = 0;
 
     for (int kk = 0; kk < 26; kk++) {
@@ -104,9 +108,12 @@ __global__ void minima_kernel(float* L, int* C, const int w, const int h, const 
   int img_z = L2I(k,tz);
   int true_p = INDEX(img_z, img_y,img_x,w);
   int s_p = INDEX(tz,ty,tx,BLOCK_SIZE);
-  int new_w = w + w * 2;
-  int new_h = h + h * 2;
-  int new_d = d + d * 2;
+  //int new_w = w + w * 2;
+  //int new_h = h + h * 2;
+  //int new_d = d + d * 2;
+  int new_w = w + w/(bdx-2)*2;
+  int new_h = h + h/(bdy-2)*2;
+  int new_d = d + d/(bdz-2)*2;
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
   tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
 
@@ -154,9 +161,12 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
   int img_z = L2I(k,tz);
   int true_p = INDEX(img_z,img_y,img_x,w);
   int p = INDEX(tz,ty,tx,BLOCK_SIZE);
-  int new_w = w + w * 2;
-  int new_h = h + h * 2;
-  int new_d = d + d * 2;
+  //int new_w = w + w * 2;
+  //int new_h = h + h * 2;
+  //int new_d = d + d * 2;
+  int new_w = w + w/(bdx-2)*2;
+  int new_h = h + h/(bdy-2)*2;
+  int new_d = d + d/(bdz-2)*2;
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
   tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
 
@@ -175,7 +185,8 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
 
   if (j < new_h && i < new_w && k < new_d &&
     s_L[p] == PLATEAU && ghost == 0) {
-    float I_p = tex3D(img,img_x,img_y,img_z); 
+    //float I_p = tex3D(img,img_x,img_y,img_z); 
+    float I_p = tex3D(img,img_z,img_y,img_x);
     float I_q;
     int n_x, n_y, n_z; float L_q;
 
@@ -185,7 +196,8 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
       if (L_q == INF || L_q >= 0) continue;
       int n_tx = L2I(i,n_x); int n_ty = L2I(j,n_y); int n_tz = L2I(k,n_z);
       int q = INDEX(n_tz,n_ty,n_tx,w);
-      I_q = tex3D(img,n_tx,n_ty,n_tz);
+      //I_q = tex3D(img,n_tx,n_ty,n_tz);
+      I_q = tex3D(img,n_tz,n_ty,n_tx);
       if (I_q == I_p && L[true_p] != -q) {
         L[true_p] = -q; 
         atomicAdd(&C[0], 1); 

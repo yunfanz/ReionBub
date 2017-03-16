@@ -10,17 +10,22 @@ def find_files(directory, pattern='watershed_*.npz'):
         for filename in fnmatch.filter(filenames, pattern):
             files.append(os.path.join(root, filename))
     if len(files) == 0:
-    	raise exception("Could not find any files")
+    	raise Exception("Could not find any files")
     return np.sort(files)
 
-def sample(files, layer=100):
+def sample(files, layer=100, mode='labels'):
+	"""mode can be labels, EDT, smEDT, markers"""
 	Nplots = 12
 	if len(files) > Nplots: files = files[:Nplots]
 	fig, axarr = plt.subplots(3, 4)
-	cmap = matplotlib.colors.ListedColormap(np.random.rand(256, 3))
+	if mode in ['labels', 'markers']:
+		carr = np.random.rand(256, 3); carr[0,:] = 0
+		cmap = matplotlib.colors.ListedColormap(carr)
+	else:
+		cmap = 'gnuplot'
 	for n in xrange(len(files)):
 		file = files[n]
-		img = np.load(file)['labels'][layer]
+		img = np.load(file)[mode][layer]
 		axarr[n/4, n%4].imshow(img, cmap=cmap)
 		axarr[n/4, n%4].set_title(file.split('/')[-1])
 	plt.setp([a.get_xticklabels() for a in axarr[0, :]], visible=False)
@@ -35,4 +40,4 @@ if __name__=='__main__':
 	DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
 	#DIR = './NPZ/'
 	files = find_files(DIR)
-	sample(files)
+	sample(files, mode='markers')

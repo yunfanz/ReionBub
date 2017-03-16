@@ -93,7 +93,8 @@ def watershed(I, mask=None):
     height, depth, block=block_size2, grid=grid_size2)
     new = counters_d.get()[0]
 
-  result = labeled_d.get()
+  labels = labeled_d.get()
+  labels = labels*mask
   
   # End GPU timers.
   end_time.record()
@@ -103,7 +104,7 @@ def watershed(I, mask=None):
 
   # print str(gpu_time)
 
-  return result
+  return labels
 
 if __name__ == '__main__':
   # Show the usage information.
