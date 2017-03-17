@@ -29,88 +29,138 @@ def random_init(n):
     return M
 
 kernel_code_template = """
-  __global__ void step(float *C, float *M, bool *Mask, bool *maxima, float h, int conn)
-  {
+#define INF 9999999999
+// Convert 3D index to 1D index.
+#define INDEX(k,j,i,ld) ((k)*ld*ld + (j) * ld + (i))
+#define EPSILON 0.0000002 //tolerance for machine precision
+
+// Convert local (shared memory) coord to global (image) coordinate.
+#define L2I(ind,off) (((ind) / blockDim.x) * (blockDim.x - 2) + (off)-1)
+
+__constant__ int N1_xs[6] = {0,1,1,-1,-1,0};
+__constant__ int N1_ys[6] = {0,1,-1,-1,1,0};
+__constant__ int N1_zs[6] = {-1,0,0,0,0,1};
+
+__constant__ int N2_xs[18] = {0,0,1,0,-1,-1,0,1,1,1,0,-1,-1,0,1,0,-1,0};
+__constant__ int N2_ys[18] = {0,-1,0,1,0,-1,-1,-1,0,1,1,1,0,-1,0,1,0,0};
+__constant__ int N2_zs[18] = {-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,1,1,1,1,1};
+
+__constant__ int N3_xs[26] = {0,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,0};
+__constant__ int N3_ys[26] = {0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,0};
+__constant__ int N3_zs[26] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1};
+
+__global__ void step(float *C, float *M, bool *Mask, bool *maxima)
+{
     bool ismax = true;
-    //int n_x = blockDim.x*gridDim.x;
-    //int n_y = blockDim.y*gridDim.y;
-    int n_x = %(NDIM)s; 
+    int w = %(NDIM)s; 
+    int bsize = blockDim.x - 2;
+    int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
+    int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
+    int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
+    int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
+    int img_x = L2I(i,tx);
+    int img_y = L2I(j,ty);
+    int img_z = L2I(k,tz);
+    int new_w = w + w/(bdx-2)*2+1;
+    //int new_w = w + w * 2;
+    //int threadId = INDEX(k,j,i, new_w);
+    int p = INDEX(img_z,img_y,img_x,%(NDIM)s);
+    int bp = INDEX(tz,ty,tx,%(BLOCKS)s);
+    int ghost = (tx == 0 || ty == 0 || tz == 0 || tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
+
+    //Mirror boundary condition
+    int px; int py; int pz;
+    if(img_x == -1) { px = 0;} 
+    else if(img_x == w) {px = w-1;}
+    else {px = img_x;}
+    if(img_y == -1) { py = 0;} 
+    else if(img_y == w) {py = w-1;}
+    else {py = img_y;}
+    if(img_z == -1) { pz = 0;} 
+    else if(img_z == w) {pz = w-1;}
+    else {pz = img_z;}
+    int pp = INDEX(pz,py,px,%(NDIM)s);
+    __shared__ float s_C[%(BLOCKS)s*%(BLOCKS)s*%(BLOCKS)s];
+    s_C[bp] = C[pp];
+
+    __syncthreads();
+
+
+    if ( ( i < new_w) && ( j < new_w ) && ( k < new_w ) && ghost==0 )
+    {
+
+        int n_neigh; 
+        int* neigh_xs = NULL; int* neigh_ys = NULL; int* neigh_zs = NULL;
+
+        switch (%(CONN)s) {
+          case 1:
+            n_neigh = 6;
+            neigh_xs = N1_xs; neigh_ys = N1_ys; neigh_zs = N1_zs;
+            break;
+          case 2:
+            n_neigh = 18;
+            neigh_xs = N2_xs; neigh_ys = N2_ys; neigh_zs = N2_zs;
+            break;
+          case 3:
+            n_neigh = 26;
+            neigh_xs = N3_xs; neigh_ys = N3_ys; neigh_zs = N3_zs;
+            break;
+        }
+
+        int ne;
+
+        if (!Mask[p]) {ismax = false;}
+        else
+        {
+          for (int ni=0; ni<n_neigh; ni++) 
+          {
+            int x = neigh_xs[ni]; int y = neigh_ys[ni]; int z = neigh_zs[ni];
+            int nex = x+tx; int ney = y+ty; int nez = z+tz;  //shared memory indices of neighbors
+            if (s_C[bp] < s_C[INDEX(nez,ney,nex,bdx)]) {ismax = false;}
+          }
+        }
+        maxima[p] = ismax;
+        //M[p] = s_C[bp];;
+
+        __syncthreads();
+
+        if (Mask[p])
+        {
+          for (int ni=0; ni<n_neigh; ni++) 
+          {
+            
+            int x = neigh_xs[ni]; int y = neigh_ys[ni]; int z = neigh_zs[ni];
+            int nex = x+tx; int ney = y+ty; int nez = z+tz;  //shared memory indices of neighbors
+            ne = INDEX(nez,ney,nex,bdx);
+            int h = %(HVAL)s;
+            if ( (maxima[ne]) && (s_C[bp] > s_C[ne] - h) ) 
+            {
+                //M[p] = s_C[ne];
+                M[p] = (s_C[bp]<s_C[ne]) ? s_C[ne] : s_C[bp];
+            }
+          }
+        }
+    }
+}
+__global__ void finalize(const float *C, float *M, bool *Mask, bool *maxima)
+{
+    int w = %(NDIM)s; 
     int i = threadIdx.x + blockDim.x*blockIdx.x;
     int j = threadIdx.y + blockDim.y*blockIdx.y;
     int k = threadIdx.z + blockDim.z*blockIdx.z;
     if ( ( i < %(NDIM)s ) && ( j < %(NDIM)s ) && ( k < %(NDIM)s ) )
     {
-        int threadId = k*n_x*n_x + j*n_x + i;
-        int i_left; int i_right; int j_down; int j_up; int k_down; int k_up;
-        //Mirror boundary condition
-        if(i==0) {i_left=i;} else {i_left=i-1;}   
-        if(i==n_x-1) {i_right=i;} else {i_right=i+1;}
-        if(j==0) {j_down=j;} else {j_down=j-1;}
-        if(j==n_x-1) {j_up=j;} else {j_up=j+1;}
-        if(k==0) {k_down=k;} else {k_down=k-1;}
-        if(k==n_x-1) {k_up=k;} else {k_up=k+1;}
-        int n_neigh; 
-        int* neighbors = NULL;
-
-        switch (conn) {
-          case 1:
-            n_neigh = 6;
-            int neigh1 [6] = {k*n_x*n_x+j*n_x+i_left, k*n_x*n_x+j_down*n_x+i, k*n_x*n_x+j*n_x+i_right,
-                                k*n_x*n_x+j_up*n_x+i, k_down*n_x*n_x+j*n_x+i, k_up*n_x*n_x+j*n_x+i};
-            neighbors = neigh1;
-            break;
-          case 2:
-            n_neigh = 18;
-            int neigh2 [18] = {k*n_x*n_x+j*n_x+i_left, k*n_x*n_x+j_down*n_x+i, k*n_x*n_x+j*n_x+i_right,
-                                k*n_x*n_x+j_up*n_x+i, k_down*n_x*n_x+j*n_x+i, k_up*n_x*n_x+j*n_x+i,
-                                k*n_x*n_x+j_up*n_x+i_left, k*n_x*n_x+j_down*n_x+i_left, k*n_x*n_x+j_down*n_x+i_right,
-                                k*n_x*n_x+j_up*n_x+i_right, k_down*n_x*n_x+j_down*n_x+i, k_up*n_x*n_x+j_down*n_x+i,
-                                k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
-                                k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right};
-            neighbors = neigh2;
-            break;
-          default:
-            n_neigh = 18;
-            int neighd [18] = {k*n_x*n_x+j*n_x+i_left, k*n_x*n_x+j_down*n_x+i, k*n_x*n_x+j*n_x+i_right,
-                                k*n_x*n_x+j_up*n_x+i, k_down*n_x*n_x+j*n_x+i, k_up*n_x*n_x+j*n_x+i,
-                                k*n_x*n_x+j_up*n_x+i_left, k*n_x*n_x+j_down*n_x+i_left, k*n_x*n_x+j_down*n_x+i_right,
-                                k*n_x*n_x+j_up*n_x+i_right, k_down*n_x*n_x+j_down*n_x+i, k_up*n_x*n_x+j_down*n_x+i,
-                                k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
-                                k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right};
-            neighbors = neighd; 
-          }
+        int threadId = k*w*w + j*w + i;
         
-        int ne;
-
-        if (!Mask[threadId]) {ismax = false;}
-        else
+        if (maxima[threadId])
         {
-          for (int ni=0; ni<n_neigh; ni++) 
-          {
-            ne = neighbors[ni];
-            if (C[threadId]<C[ne]) {ismax = false;}
-          }
-        }
-        maxima[threadId] = ismax;
-        M[threadId] = C[threadId];
-        __syncthreads();
-
-        if (Mask[threadId])
-        {
-          for (int ni=0; ni<n_neigh; ni++) 
-          {
-            ne = neighbors[ni];
-            if ( (maxima[ne]) && (C[threadId] >= C[ne] - h) ) 
-            {
-                M[threadId] = (C[threadId]<C[ne]) ? C[ne] : C[threadId];
-            }
-          }
+            M[threadId] = C[threadId]- %(HVAL)s;
         }
     }
-  }
+}
 """
 
-def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, n_iter=50, n_block=8):
+def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivity=2,n_iter=50, n_block=7):
     DRAW = False
     if filename is not None:
         file = np.load(filename)
@@ -122,38 +172,39 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, n_iter=50,
     arr = arr.astype(np.float32)
     M = arr.copy()
     n = arr.shape[0]
-    n_grid = int(np.ceil(float(n)/n_block))
+    n_grid = int(np.ceil(float(n)/(n_block-2)))
     print n_grid
     #n = n_block*n_grid
     kernel_code = kernel_code_template % {
-        'NDIM': n
+        'NDIM': n,
+        'HVAL': h,
+        'CONN': connectivity,
+        'BLOCKS': n_block
     }
     mod = SourceModule(kernel_code)
-    func = mod.get_function("step")
-    print "Tranferring data to gpu"
+    func1 = mod.get_function("step")
+    func3 = mod.get_function("finalize")
+
     C_gpu = gpuarray.to_gpu( arr )
     M_gpu = gpuarray.to_gpu( M )
     mask_gpu = gpuarray.to_gpu( mask )
     max_gpu = gpuarray.to_gpu( maxima )
-    h_gpu = gpuarray.to_gpu(np.array(0.7, dtype=np.float32))
-    conn_gpu = gpuarray.to_gpu(np.array(2, dtype=np.int32))
+    # conn_gpu = gpuarray.to_gpu(np.array(2, dtype=np.int32))
     # print(h_gpu.get())
-    print "Starting gpu force h-transform with iteration", n_iter
-    if DRAW:
-        fig = plt.figure(figsize=(12,12))
-        ax = fig.add_subplot(111)
-        fig.suptitle("H_max")
-        ax.set_title('Number of Iterations = %d'%(n_iter))
-        myobj = plt.imshow(C_gpu.get()[8],origin='lower',cmap='Greys',  interpolation='nearest')
-        plt.ion()
-        plt.draw()
+    print "Starting PyCUDA h-transform with iteration", n_iter
+    
     for k in range(n_iter):
-        func(C_gpu,M_gpu,mask_gpu, max_gpu, h_gpu, conn_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
+        start = pycuda.driver.Event()
+        end = pycuda.driver.Event()
+        start.record()
+        func1(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
+        end.record()
+        end.synchronize()
         C_gpu, M_gpu = M_gpu, C_gpu
-        if DRAW:
-            myobj.set_data(C_gpu.get()[8])
-            ax.set_title('Number of Iterations = %d'%(k))
-            plt.draw()
+        if False:  #For monitoring convergence
+            C_cpu = C_gpu.get(); M_cpu = M_gpu.get()
+            print "iteration and number of cells changed: ", k, np.sum(np.abs(C_cpu-M_cpu)>0)
+    #func3(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
     arr_transformed = C_gpu.get()
     maxima_trans = max_gpu.get()
     print "exiting h_max_gpu"

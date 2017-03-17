@@ -1,6 +1,6 @@
 #define INF 9999999999
 #define PLATEAU 0
-#define BLOCK_SIZE 8
+#define BLOCK_SIZE 10
 
 // Convert 3D index to 1D index.
 #define INDEX(k,j,i,ld) ((k)*ld*ld + (j) * ld + (i))
@@ -39,10 +39,8 @@ __global__ void descent_kernel(float* labeled, const int w, const int h, const i
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
   tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
 
-  if ((bx == 0 && tx == 0) || (by == 0 && ty == 0) || (bz == 0 && tz == 0) ||
-     (bx == (w / size - 1) && tx == bdx - 1) ||
-     (by == (h / size - 1) && ty == bdy - 1) ||
-     (bz == (d / size - 1) && tz == bdz - 1)) {
+  if ((img_x < 0) || (img_y < 0) || (img_z < 0) ||
+     (img_x == w) || (img_y == h) || (img_z == d)) {
        s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = INF;
   } else {
      s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = tex3D(img,img_x,img_y,img_z);
@@ -114,10 +112,8 @@ __global__ void minima_kernel(float* L, int* C, const int w, const int h, const 
   int ghost = (tx == 0 || ty == 0 || tz == 0 ||
   tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
 
-  if ((bx == 0 && tx == 0) || (by == 0 && ty == 0) || (bz == 0 && tz == 0) ||
-     (bx == (w / size - 1) && tx == bdx - 1) ||
-     (by == (h / size - 1) && ty == bdy - 1) ||
-     (bz == (d / size - 1) && tz == bdz - 1)) {
+  if ((img_x < 0) || (img_y < 0) || (img_z < 0) ||
+     (img_x == w) || (img_y == h) || (img_z == d)) {
      s_L[INDEX(tz,ty,tx,BLOCK_SIZE)] = INF;
   } else {
     s_L[s_p] = L[INDEX(img_z,img_y,img_x,w)];
@@ -168,10 +164,8 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
   tx == bdx - 1 || ty == bdy - 1 || tz == bdz - 1);
 
   // Load data into shared memory.
-  if ((bx == 0 && tx == 0) || (by == 0 && ty == 0) || (bz == 0 && tz == 0) ||
-     (bx == (w / size - 1) && tx == bdx - 1) ||
-     (by == (h / size - 1) && ty == bdy - 1) ||
-     (bz == (d / size - 1) && tz == bdz - 1)) {
+  if ((img_x < 0) || (img_y < 0) || (img_z < 0) ||
+     (img_x == w) || (img_y == h) || (img_z == d)) {
        s_L[INDEX(tz,ty,tx,BLOCK_SIZE)] = INF;
   } else {
      s_L[INDEX(tz,ty,tx,BLOCK_SIZE)] =

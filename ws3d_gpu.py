@@ -26,13 +26,13 @@ def watershed(I, mask=None):
     mask = np.ones(I.shape)
 
   # Get block/grid size for steps 1-3.
-  block_size =  (8,8,8)
+  block_size =  (10,10,10)
   grid_size =   (width/(block_size[0]-2)+1,
                 height/(block_size[0]-2)+1,
                 depth/(block_size[0]-2)+1)
 
   # Get block/grid size for step 4.
-  block_size2 = (8,8,8)
+  block_size2 = (10,10,10)
   grid_size2  = (width/(block_size2[0]-2)+1,
                 height/(block_size2[0]-2)+1,
                 depth/(block_size2[0]-2)+1)

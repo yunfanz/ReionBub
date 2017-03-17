@@ -29,7 +29,7 @@ def random_init(n):
     return M
 
 kernel_code_template = """
-__global__ void get_max(float *C, float *M, bool *Mask, bool *maxima)
+__global__ void get_max(const float *C, float *M, bool *Mask, bool *maxima)
 {
     bool ismax = true;
     //int n_x = blockDim.x*gridDim.x;
@@ -77,10 +77,10 @@ __global__ void get_max(float *C, float *M, bool *Mask, bool *maxima)
                                 k*n_x*n_x+j_up*n_x+i_right, k_down*n_x*n_x+j_down*n_x+i, k_up*n_x*n_x+j_down*n_x+i,
                                 k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
                                 k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right,
-                                k_up*n_x*n_x+j_up*n_x+i_right, k_up*n_x*n_x+j_down*n_x+i_right, k_down*n_x*n_x+j_up*n_x+i_right
+                                k_up*n_x*n_x+j_up*n_x+i_right, k_up*n_x*n_x+j_down*n_x+i_right, k_down*n_x*n_x+j_up*n_x+i_right,
                                 k_down*n_x*n_x+j_down*n_x+i_right, k_up*n_x*n_x+j_up*n_x+i_left, k_up*n_x*n_x+j_down*n_x+i_left,
                                 k_down*n_x*n_x+j_up*n_x+i_left, k_down*n_x*n_x+j_down*n_x+i_left,};
-            neighbors = neigh26;
+            neighbors = neigh3;
             break;
           default:
             n_neigh = 18;
@@ -108,15 +108,16 @@ __global__ void get_max(float *C, float *M, bool *Mask, bool *maxima)
         M[threadId] = C[threadId];
     }
 }
-__global__ void update(float *C, float *M, bool *Mask, bool *maxima)
+__global__ void update(const float *C, float *M, bool *Mask, bool *maxima)
 {
     int n_x = %(NDIM)s; 
     int i = threadIdx.x + blockDim.x*blockIdx.x;
     int j = threadIdx.y + blockDim.y*blockIdx.y;
     int k = threadIdx.z + blockDim.z*blockIdx.z;
-    if ( ( i < %(NDIM)s ) && ( j < %(NDIM)s ) && ( k < %(NDIM)s ) )
+    int threadId = k*n_x*n_x + j*n_x + i;
+    if ( ( i < %(NDIM)s ) && ( j < %(NDIM)s ) && ( k < %(NDIM)s ) && Mask[threadId])
     {
-        int threadId = k*n_x*n_x + j*n_x + i;
+        
         int i_left; int i_right; int j_down; int j_up; int k_down; int k_up;
         //Mirror boundary condition
         if(i==0) {i_left=i;} else {i_left=i-1;}   
@@ -153,10 +154,10 @@ __global__ void update(float *C, float *M, bool *Mask, bool *maxima)
                                 k*n_x*n_x+j_up*n_x+i_right, k_down*n_x*n_x+j_down*n_x+i, k_up*n_x*n_x+j_down*n_x+i,
                                 k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
                                 k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right,
-                                k_up*n_x*n_x+j_up*n_x+i_right, k_up*n_x*n_x+j_down*n_x+i_right, k_down*n_x*n_x+j_up*n_x+i_right
+                                k_up*n_x*n_x+j_up*n_x+i_right, k_up*n_x*n_x+j_down*n_x+i_right, k_down*n_x*n_x+j_up*n_x+i_right,
                                 k_down*n_x*n_x+j_down*n_x+i_right, k_up*n_x*n_x+j_up*n_x+i_left, k_up*n_x*n_x+j_down*n_x+i_left,
                                 k_down*n_x*n_x+j_up*n_x+i_left, k_down*n_x*n_x+j_down*n_x+i_left,};
-            neighbors = neigh26;
+            neighbors = neigh3;
             break;
           default:
             n_neigh = 18;
@@ -167,23 +168,23 @@ __global__ void update(float *C, float *M, bool *Mask, bool *maxima)
                                 k_down*n_x*n_x+j*n_x+i_left, k_down*n_x*n_x+j_up*n_x+i, k_up*n_x*n_x+j_up*n_x+i,
                                 k_down*n_x*n_x+j*n_x+i_right, k_up*n_x*n_x+j*n_x+i_left, k_up*n_x*n_x+j*n_x+i_right};
             neighbors = neighd; 
-          }
+        }
         
         int ne;
-        if (Mask[threadId])
+        float nei_max = C[threadId];
+        for (int ni=0; ni<n_neigh; ni++) 
         {
-          for (int ni=0; ni<n_neigh; ni++) 
-          {
             ne = neighbors[ni];
-            if ( (maxima[ne]) && (C[threadId] >= C[ne] - %(HVAL)s) ) 
+            if ( (maxima[ne]) && (C[ne] > nei_max) && (C[threadId] > C[ne] - %(HVAL)s) ) 
             {
-                M[threadId] = (C[threadId]<C[ne]) ? C[ne] : C[threadId];
+                nei_max = C[ne];
             }
-          }
         }
+        M[threadId] = nei_max;
+
     }
 }
-__global__ void finalize(float *C, float *M, bool *Mask, bool *maxima)
+__global__ void finalize(const float *C, float *M, bool *Mask, bool *maxima)
 {
     int n_x = %(NDIM)s; 
     int i = threadIdx.x + blockDim.x*blockIdx.x;
@@ -248,8 +249,8 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivi
         if False:  #For monitoring convergence
             C_cpu = C_gpu.get(); M_cpu = M_gpu.get()
             print "iteration and number of cells changed: ", k, np.sum(np.abs(C_cpu-M_cpu)>0)
-    func3(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
-    arr_transformed = M_gpu.get()
+    #func3(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
+    arr_transformed = C_gpu.get()
     maxima_trans = max_gpu.get()
     print "exiting h_max_gpu"
     return arr_transformed, maxima_trans
