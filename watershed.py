@@ -4,7 +4,7 @@ from scipy import ndimage
 from skimage import measure, morphology, segmentation
 from skimage.feature import peak_local_max
 from tocmfastpy import *
-from h_transform_blocksync import *
+from h_transform_globalsync import *
 import pylab as plt
 import seaborn as sns
 import ws3d_gpu, edt_cuda
@@ -52,7 +52,7 @@ def local_maxima_cpu(arr, ionized, threshold_h=0.7, connectivity=2, save=False, 
     return maxima, arr
 
 def local_maxima_gpu(arr, ionized, threshold_h=0.7, connectivity=2):
-    s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=150)
+    s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=2)
     return maxima, s_arr
 
 def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):

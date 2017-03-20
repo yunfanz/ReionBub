@@ -81,6 +81,7 @@ __global__ void step(float *C, float *M, bool *Mask, bool *maxima)
     else {pz = img_z;}
     int pp = INDEX(pz,py,px,%(NDIM)s);
     __shared__ float s_C[%(BLOCKS)s*%(BLOCKS)s*%(BLOCKS)s];
+    __shared__ float s_MAX[%(BLOCKS)s*%(BLOCKS)s*%(BLOCKS)s];
     s_C[bp] = C[pp];
 
     __syncthreads();
@@ -120,7 +121,8 @@ __global__ void step(float *C, float *M, bool *Mask, bool *maxima)
           }
         }
         maxima[p] = ismax;
-        //M[p] = s_C[bp];;
+        s_MAX[bp] = ismax;
+        M[p] = s_C[bp];;
 
         __syncthreads();
 
@@ -130,13 +132,13 @@ __global__ void step(float *C, float *M, bool *Mask, bool *maxima)
           {
             
             int x = neigh_xs[ni]; int y = neigh_ys[ni]; int z = neigh_zs[ni];
-            int nex = x+tx; int ney = y+ty; int nez = z+tz;  //shared memory indices of neighbors
-            ne = INDEX(nez,ney,nex,bdx);
+            int nex = x+tx; int ney = y+ty; int nez = z+tz;  //shared memory indices of neighbors within block
+            ne = INDEX(nez,ney,nex,%(BLOCKS)s);
             int h = %(HVAL)s;
-            if ( (maxima[ne]) && (s_C[bp] > s_C[ne] - h) ) 
+            if ( (s_MAX[ne]) && (s_C[bp] < s_C[ne]) && (s_C[bp] > s_C[ne] - h) ) 
             {
-                //M[p] = s_C[ne];
-                M[p] = (s_C[bp]<s_C[ne]) ? s_C[ne] : s_C[bp];
+                M[p] = s_C[ne];
+                //M[p] = ((s_C[bp]<s_C[ne]) && (s_C[bp] > s_C[ne] - h)) ? s_C[ne] : s_C[bp];
             }
           }
         }
