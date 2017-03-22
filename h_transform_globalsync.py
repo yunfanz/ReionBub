@@ -257,7 +257,6 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivi
     #func3(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
     arr_transformed = C_gpu.get()
     maxima_trans = max_gpu.get()
-    print "exiting h_max_gpu"
     return arr_transformed, maxima_trans
 
 # if __name__=='__main__':

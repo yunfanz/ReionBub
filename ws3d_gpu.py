@@ -7,19 +7,19 @@ from ws_utils import *
 
 # Read and compile CUDA kernels.
 print "Compiling CUDA kernels..."
-kernel_source = open("watershed.cu").read()
-main_module = nvcc.SourceModule(kernel_source)
-descent_kernel = main_module.get_function("descent_kernel")
-stabilize_kernel = main_module.get_function("stabilize_kernel")
-image_texture = main_module.get_texref("img")
-plateau_kernel = main_module.get_function("plateau_kernel")
-minima_kernel = main_module.get_function("minima_kernel")
-flood_pkernel = main_module.get_function("flood_pkernel")
-flood_kernel = main_module.get_function("flood_kernel")
-increment_kernel = main_module.get_function("increment_kernel")
+
 
 # PyCUDA wrapper for watershed.
 def watershed(I, mask=None):
+  kernel_source = open("watershed_save.cu").read()
+  main_module = nvcc.SourceModule(kernel_source)
+  descent_kernel = main_module.get_function("descent_kernel")
+  stabilize_kernel = main_module.get_function("stabilize_kernel")
+  image_texture = main_module.get_texref("img")
+  plateau_kernel = main_module.get_function("plateau_kernel")
+  minima_kernel = main_module.get_function("minima_kernel")
+  flood_kernel = main_module.get_function("flood_kernel")
+  increment_kernel = main_module.get_function("increment_kernel")
 
   # Get contiguous image + shape.
   height, width, depth = I.shape
@@ -50,7 +50,7 @@ def watershed(I, mask=None):
 
   # Transfer labels asynchronously.
   labeled_d = gpu.to_gpu_async(labeled)
-  counter_d = gpu.to_gpu_async(count)
+  counters_d = gpu.to_gpu_async(count)
   # mask_d = cu.np_to_array( mask, order='C' )
   # cu.bind_array_to_texref(mask_d, mask_texture)
   # Bind CUDA textures.
@@ -66,56 +66,53 @@ def watershed(I, mask=None):
   start_time.record()
 
 
-
-  # Step 2.
-  increment_kernel(labeled_d,width,height,depth, 
-    block=block_size,grid=grid_size)
-  # Step 3
   counters_d = gpu.to_gpu(np.int32([0]))
-  old, new = -1, -2
+  #counters_d = gpu.to_gpu_async(np.int32([0]))
+  old, new = -1, -2; it = 0
   while old != new:
+    it +=1 
     old = new
     plateau_kernel(labeled_d, counters_d, width, height, depth,
     block=block_size, grid=grid_size)
     new = counters_d.get()[0]
-# Step 2.B
+  print 'plateau kernel', it-2
+
+  # Step 2.
+  increment_kernel(labeled_d,width,height,depth, 
+    block=block_size,grid=grid_size)
+
   counters_d = gpu.to_gpu(np.int32([0]))
-  old, new = -1, -2
+  old, new = -1, -2; it = 0
 
   while old != new:
+    it +=1
     old = new
     minima_kernel(labeled_d, counters_d, width, height, depth,
     block=block_size, grid=grid_size)
     new = counters_d.get()[0]
+  print 'minima kernel', it-2
 
   # Step 3.
   # counters_d = gpu.to_gpu(np.int32([0]))
-  # old, new = -1, -2
+  # old, new = -1, -2; it = 0
   # while old != new:
+  #   it +=1
   #   old = new
   #   plateau_kernel(labeled_d, counters_d, width,
   #   height, depth, block=block_size, grid=grid_size)
   #   new = counters_d.get()[0]
+  # print 'plateau kernel', it-2
   
-
   # Step 4
   counters_d = gpu.to_gpu(np.int32([0]))
-  old, new = -1, -2
+  old, new = -1, -2; it = 0
   while old != new:
-    old = new
-    flood_pkernel(labeled_d, counters_d, width,
-    height, depth, block=block_size2, grid=grid_size2)
-    new = counters_d.get()[0]
-
-
-  # Step 4
-  counters_d = gpu.to_gpu(np.int32([0]))
-  old, new = -1, -2
-  while old != new:
+    it +=1
     old = new
     flood_kernel(labeled_d, counters_d, width,
     height, depth, block=block_size2, grid=grid_size2)
     new = counters_d.get()[0]
+  print 'flood kernel', it-2
 
   labels = labeled_d.get()
   labels = labels*mask
@@ -127,6 +124,8 @@ def watershed(I, mask=None):
   time_till(end_time) * 1e-3
 
   # print str(gpu_time)
+  #cu.DeviceAllocation.free(counters_d)
+  del counters_d
 
   return labels
 

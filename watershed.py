@@ -147,7 +147,7 @@ def find_files(directory, pattern='xH_nohalos_*'):
     for root, dirnames, filenames in os.walk(directory):
         for filename in fnmatch.filter(filenames, pattern):
             files.append(os.path.join(root, filename))
-    return files
+    return np.sort(files)
 
 def mc_test(N=1000,SIZE=200):
     x, y, z = np.indices((SIZE, SIZE,SIZE))
@@ -213,10 +213,10 @@ if __name__ == '__main__':
     #FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
     #DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
     DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-    FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
+    #FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
-    PATH = DIR+FILE
+    #PATH = DIR+FILE
     files = find_files(DIR)
     #mc_test()
 
@@ -241,41 +241,25 @@ if __name__ == '__main__':
 
     # Parallel(n_jobs=4)(delayed(execute)(path) for path in files)
 
-    for path in [PATH]:
+    for path in files[1:]:
         print 'Processing', path
         b1 = boxio.readbox(path)
-        d1 = 1 - b1.box_data#[::5,::5,::5]
+        d1 = 1 - b1.box_data[::2,::2,::2]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
-        OUTFILE = b1.param_dict['basedir']+'/1watershed_z{0}.npz'.format(b1.z)
+        OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
 
-        labels, markers, EDT, smEDT = watershed_3d(d1, h=1., target='gpu', connectivity=3)
-        #OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(b1.z)+'.npz'
+        labels, markers, EDT, smEDT = watershed_3d(d1, h=.7, target='gpu', connectivity=3)
         Q_a = 1 - b1.param_dict['nf']
         print Q_a
         print 'saving', OUTFILE
-        #np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=smEDT)
+        np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=smEDT)
 
 
     #hist, bins = get_size_dist(labels, Q, scale=scale)
 
-    import matplotlib
-    carr = np.random.rand(256, 3); carr[0,:] = 0
-    cmap = matplotlib.colors.ListedColormap(carr)
+    # import matplotlib
+    # carr = np.random.rand(256, 3); carr[0,:] = 0
+    # cmap = matplotlib.colors.ListedColormap(carr)
 
-    import IPython; IPython.embed()
-    # print 'computing bdt'
-    # BDT = ndimage.distance_transform_bf(1-marker_ionized)
-    # import pylab as plt
-    # plt.figure()
-    # plt.subplot(141)
-    # plt.imshow(d1[128])
-    # plt.subplot(142)
-    # plt.imshow(EDT[128])
-    # plt.subplot(143)
-    # plt.imshow(labels[128])
-    # plt.subplot(144)
-    # plt.imshow(markers[128])
+    # import IPython; IPython.embed()
 
-    # plt.figure()
-    # plt.plot(bins[1:], hist)
-    # plt.show()

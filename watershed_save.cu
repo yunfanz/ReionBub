@@ -255,9 +255,9 @@ __global__ void flood_kernel(float* L, int* C, const int w, const int h, const i
   int k = blockDim.z * blockIdx.z + threadIdx.z;
   int p = INDEX(k,j,i,w); int q;
 
-  if (j < h && i < w && k < d && L[p] < 0) {
+  if (j < h && i < w && k < d && L[p] <= 0) {
     q = -L[p];
-    if (L[q] >= 0 && L[p] != L[q]) {
+    if (L[q] > 0 && L[p] != L[q]) {
     //if (L[p] != L[q]) {
       L[p] = L[q];
       atomicAdd(&C[0],1);
