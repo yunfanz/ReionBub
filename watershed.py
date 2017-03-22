@@ -52,7 +52,7 @@ def local_maxima_cpu(arr, ionized, threshold_h=0.7, connectivity=2, save=False, 
     return maxima, arr
 
 def local_maxima_gpu(arr, ionized, threshold_h=0.7, connectivity=2):
-    s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=2)
+    s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=150)
     return maxima, s_arr
 
 def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):
@@ -62,14 +62,14 @@ def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):
         print 'Computing EDT'
         EDT = ndimage.distance_transform_edt(ionized)
         #EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
-        #import IPython; IPython.embed()
+        #
         maxima, smEDT = local_maxima_gpu(EDT.copy(), ionized, connectivity=connectivity, threshold_h=h)
-        import IPython; IPython.embed()
+        #import IPython; IPython.embed()
         print 'Computing watershed'
         if True:
-            labels = ws3d_gpu.watershed(-EDT, mask=ionized)
-            
-            markers = 0
+            labels = ws3d_gpu.watershed(-smEDT, mask=ionized)
+            #import IPython; IPython.embed()
+            markers = measure.label(maxima, connectivity=connectivity)
         else:
             markers = measure.label(maxima, connectivity=connectivity)
             labels = morphology.watershed(-smEDT, markers, mask=ionized)
@@ -165,12 +165,17 @@ def mc_test(N=1000,SIZE=200):
     #                          indices=False)
     # markers = ndimage.label(local_maxi)[0]
     # labels = morphology.watershed(-distance, markers, mask=image)
-    sd, maxima = h_max_gpu(arr=distance,mask=image, maxima=None, h=2, n_iter=150)
+    sd, maxima = h_max_gpu(arr=distance,mask=image, maxima=None, h=1.0, n_iter=150, connectivity=3)
     labels = ws3d_gpu.watershed(-sd, mask=image)
-    flabels = ws3d_gpu.watershed(-distance, mask=image)
+    markers = measure.label(maxima, connectivity=3)
+    flabels = morphology.watershed(-sd, markers, mask=image)
     import matplotlib
     carr = np.random.rand(256, 3); carr[0,:] = 0
     cmap = matplotlib.colors.ListedColormap(carr)
+    plt.subplot(121)
+    plt.imshow(labels[50], cmap=cmap)
+    plt.subplot(122)
+    plt.imshow(flabels[50], cmap=cmap)
     import IPython; IPython.embed()
 
 def circle_test():
@@ -188,8 +193,14 @@ def circle_test():
                              footprint=np.ones((3, 3, 3)),
                              indices=False)
     markers = ndimage.label(local_maxi)[0]
-    labels = morphology.watershed(-distance, markers, mask=image)
+    #labels = morphology.watershed(-distance, markers, mask=image)
     flabels = ws3d_gpu.watershed(-distance, mask=image)
+    import matplotlib
+    carr = np.random.rand(256, 3); carr[0,:] = 0
+    cmap = matplotlib.colors.ListedColormap(carr)
+    fig, axes = plt.subplots(1,1)
+    #axes[0].imshow(labels[40],cmap=cmap)
+    axes.imshow(flabels[40],cmap=cmap)
     import IPython; IPython.embed()
 
 
@@ -200,8 +211,8 @@ if __name__ == '__main__':
     #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
     #DIR = '../pkgs/21cmFAST/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
-    DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
-    #DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+    #DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
+    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
     FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
@@ -237,7 +248,7 @@ if __name__ == '__main__':
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         OUTFILE = b1.param_dict['basedir']+'/1watershed_z{0}.npz'.format(b1.z)
 
-        labels, markers, EDT, smEDT = watershed_3d(d1, h=1., target='gpu')
+        labels, markers, EDT, smEDT = watershed_3d(d1, h=1., target='gpu', connectivity=3)
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(b1.z)+'.npz'
         Q_a = 1 - b1.param_dict['nf']
         print Q_a
@@ -247,6 +258,9 @@ if __name__ == '__main__':
 
     #hist, bins = get_size_dist(labels, Q, scale=scale)
 
+    import matplotlib
+    carr = np.random.rand(256, 3); carr[0,:] = 0
+    cmap = matplotlib.colors.ListedColormap(carr)
 
     import IPython; IPython.embed()
     # print 'computing bdt'

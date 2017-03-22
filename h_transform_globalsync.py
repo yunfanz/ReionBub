@@ -94,6 +94,7 @@ __global__ void get_max(const float *C, float *M, bool *Mask, bool *maxima)
           }
         
         int ne;
+        int n_equal = 0;
 
         if (!Mask[threadId]) {ismax = false;}
         else
@@ -102,7 +103,9 @@ __global__ void get_max(const float *C, float *M, bool *Mask, bool *maxima)
           {
             ne = neighbors[ni];
             if (C[threadId]<C[ne]) {ismax = false;}
+            if (C[threadId]==C[ne]) {n_equal ++;}
           }
+          if (n_equal == n_neigh) { ismax = false; }
         }
         maxima[threadId] = ismax;
         M[threadId] = C[threadId];
@@ -249,6 +252,8 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivi
         if False:  #For monitoring convergence
             C_cpu = C_gpu.get(); M_cpu = M_gpu.get()
             print "iteration and number of cells changed: ", k, np.sum(np.abs(C_cpu-M_cpu)>0)
+    func1(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
+    end.synchronize()
     #func3(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
     arr_transformed = C_gpu.get()
     maxima_trans = max_gpu.get()
