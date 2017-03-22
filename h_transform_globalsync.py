@@ -111,7 +111,7 @@ __global__ void get_max(const float *C, float *M, bool *Mask, bool *maxima)
         M[threadId] = C[threadId];
     }
 }
-__global__ void update(const float *C, float *M, bool *Mask, bool *maxima)
+__global__ void update(const float *C, float *M, bool *Mask, bool *maxima, int* count)
 {
     int n_x = %(NDIM)s; 
     int i = threadIdx.x + blockDim.x*blockIdx.x;
@@ -181,6 +181,7 @@ __global__ void update(const float *C, float *M, bool *Mask, bool *maxima)
             if ( (maxima[ne]) && (C[ne] > nei_max) && (C[threadId] > C[ne] - %(HVAL)s) ) 
             {
                 nei_max = C[ne];
+                atomicAdd(&count[0],1);
             }
         }
         M[threadId] = nei_max;
@@ -236,8 +237,14 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivi
     # conn_gpu = gpuarray.to_gpu(np.array(2, dtype=np.int32))
     # print(h_gpu.get())
     print "Starting PyCUDA h-transform with iteration", n_iter
+    counters_d = gpuarray.to_gpu(np.int32([0]))
+    old, new = -1, -2
     
     for k in range(n_iter):
+        if old == new:
+            print 'completed with {} iterations'.format(n_iter)
+            break
+        old = new
         start = pycuda.driver.Event()
         pause = pycuda.driver.Event()
         end = pycuda.driver.Event()
@@ -245,7 +252,8 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivi
         func1(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
         pause.record()
         pause.synchronize()
-        func2(C_gpu,M_gpu,mask_gpu, max_gpu, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
+        func2(C_gpu,M_gpu,mask_gpu, max_gpu, counters_d, block=(n_block,n_block,n_block),grid=(n_grid,n_grid,n_grid))
+        new = counters_d.get()[0]
         end.record()
         end.synchronize()
         C_gpu, M_gpu = M_gpu, C_gpu

@@ -241,14 +241,15 @@ if __name__ == '__main__':
 
     # Parallel(n_jobs=4)(delayed(execute)(path) for path in files)
 
-    for path in files[1:]:
+    for path in files:
         print 'Processing', path
         b1 = boxio.readbox(path)
-        d1 = 1 - b1.box_data[::2,::2,::2]
+        # d1 = 1 - b1.box_data[::2,::2,::2]
+        d1 = 1 - b1.box_data[:250,:250,:250]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
 
-        labels, markers, EDT, smEDT = watershed_3d(d1, h=.7, target='gpu', connectivity=3)
+        labels, markers, EDT, smEDT = watershed_3d(d1, h=0.3, target='gpu', connectivity=3)
         Q_a = 1 - b1.param_dict['nf']
         print Q_a
         print 'saving', OUTFILE
