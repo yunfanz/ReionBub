@@ -16,7 +16,7 @@ def find_files(directory, pattern='watershed_*.npz'):
 def sample(files, layer=100, mode='labels'):
 	"""mode can be labels, EDT, smEDT, markers"""
 	Nplots = 12
-	ncols = 3
+	ncols = 2
 	if len(files) > Nplots: files = files[:Nplots]
 	nrows = len(files)/ncols
 	if len(files)%ncols > 0: nrows +=1
@@ -42,6 +42,7 @@ def sample(files, layer=100, mode='labels'):
 
 if __name__=='__main__':
 	#DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
-	DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+	#DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+	DIR = './NPZ/'
 	files = find_files(DIR)
 	sample(files, mode='labels')

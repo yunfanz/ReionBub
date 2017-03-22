@@ -1,6 +1,6 @@
 #define INF 9999999999
 #define PLATEAU 0
-#define BLOCK_SIZE 10
+#define BLOCK_SIZE 8
 
 // Convert 3D index to 1D index.
 #define INDEX(k,j,i,ld) ((k)*ld*ld + (j) * ld + (i))

@@ -29,16 +29,16 @@ def watershed(I, mask=None):
   mask = np.int32(mask)
 
   # Get block/grid size for steps 1-3.
-  block_size =  (10,10,10)
+  block_size =  (8,8,8)
   grid_size =   (width/(block_size[0]-2)+1,
                 height/(block_size[0]-2)+1,
                 depth/(block_size[0]-2)+1)
 
-  # Get block/grid size for step 4.
-  block_size2 = (10,10,10)
-  grid_size2  = (width/(block_size2[0]-2)+1,
-                height/(block_size2[0]-2)+1,
-                depth/(block_size2[0]-2)+1)
+  # # Get block/grid size for step 4.
+  # block_size2 = (10,10,10)
+  # grid_size2  = (width/(block_size2[0]-2)+1,
+  #               height/(block_size2[0]-2)+1,
+  #               depth/(block_size2[0]-2)+1)
 
   # Initialize variables.
   labeled       = np.zeros([height,width,depth]) 
@@ -110,7 +110,7 @@ def watershed(I, mask=None):
     it +=1
     old = new
     flood_kernel(labeled_d, counters_d, width,
-    height, depth, block=block_size2, grid=grid_size2)
+    height, depth, block=block_size, grid=grid_size)
     new = counters_d.get()[0]
   print 'flood kernel', it-2
 

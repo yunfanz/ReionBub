@@ -52,7 +52,7 @@ def local_maxima_cpu(arr, ionized, threshold_h=0.7, connectivity=2, save=False, 
     return maxima, arr
 
 def local_maxima_gpu(arr, ionized, threshold_h=0.7, connectivity=2):
-    s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=150)
+    s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=1000)
     return maxima, s_arr
 
 def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):
@@ -241,15 +241,15 @@ if __name__ == '__main__':
 
     # Parallel(n_jobs=4)(delayed(execute)(path) for path in files)
 
-    for path in files:
+    for path in [files[0]]:
         print 'Processing', path
         b1 = boxio.readbox(path)
         # d1 = 1 - b1.box_data[::2,::2,::2]
-        d1 = 1 - b1.box_data[:250,:250,:250]
+        d1 = 1 - b1.box_data#[:250,:250,:250]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
-        OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
-
-        labels, markers, EDT, smEDT = watershed_3d(d1, h=0.3, target='gpu', connectivity=3)
+        #OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
+        OUTFILE = './NPZ/watershed_z{0}.npz'.format(b1.z)
+        labels, markers, EDT, smEDT = watershed_3d(d1, h=0.7, target='gpu', connectivity=3)
         Q_a = 1 - b1.param_dict['nf']
         print Q_a
         print 'saving', OUTFILE

@@ -15,6 +15,21 @@ def find_files(directory, pattern='watershed_*.npz'):
     	raise Exception("Could not find any files")
     return np.sort(files)
 
+def get_center(coords):
+	return tuple(coords.mean(axis=0))
+
+def get_merit(coords1, coords2):
+	N1, N2 = coords1.shape[0], coords2.shape[0]
+	N12 = float(len( set([tuple(row) for row in coords1]) & set([tuple(row) for row in coords2])))
+	return N12**2/N1/N2
+
+def find_merger(slate, searly, lateID=None, Nprog=None):
+	lab1 = measure.label(slate)
+	R1 = measure.regionprops(lab1)
+	if lateID: R1 = [R1[i] for i in lateID]
+	else:
+
+
 def sample(files, connectivity=2, mode='labels'):
 	"""mode can be labels, EDT, smEDT, markers"""
 
