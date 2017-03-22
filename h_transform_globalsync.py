@@ -206,7 +206,7 @@ __global__ void finalize(const float *C, float *M, bool *Mask, bool *maxima)
 }
 """
 
-def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivity=2, n_iter=50, n_block=8):
+def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivity=2, n_iter=200, n_block=8):
     if filename is not None:
         file = np.load(filename)
         arr = file['arr']; mask = file['mask']
@@ -236,13 +236,13 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivi
     max_gpu = gpuarray.to_gpu( maxima )
     # conn_gpu = gpuarray.to_gpu(np.array(2, dtype=np.int32))
     # print(h_gpu.get())
-    print "Starting PyCUDA h-transform with iteration", n_iter
+    print "Starting PyCUDA h-transform with max iteration", n_iter
     counters_d = gpuarray.to_gpu(np.int32([0]))
-    old, new = -1, -2
+    old, new = -1, -2; it = 0
     
     for k in range(n_iter):
         if old == new:
-            print 'completed with {} iterations'.format(n_iter)
+            print 'completed with {} iterations, {} changed cells'.format(it, new)
             break
         old = new
         start = pycuda.driver.Event()
@@ -257,6 +257,7 @@ def h_max_gpu(filename=None, arr=None, mask=None, maxima=None, h=0.7, connectivi
         end.record()
         end.synchronize()
         C_gpu, M_gpu = M_gpu, C_gpu
+        it +=1
         if False:  #For monitoring convergence
             C_cpu = C_gpu.get(); M_cpu = M_gpu.get()
             print "iteration and number of cells changed: ", k, np.sum(np.abs(C_cpu-M_cpu)>0)
