@@ -154,6 +154,7 @@ def mc_test(N=1000,SIZE=200):
     image = np.zeros_like(x)
     print image.shape
     for n in xrange(N):
+        print n
         x1, y1, z1 = np.random.randint(0,SIZE, size=3)
         r1 = np.random.randint(1,SIZE/10)
         mask_circle1 = (x - x1)**2 + (y - y1)**2 + (z - z1)**2< r1**2
@@ -173,9 +174,9 @@ def mc_test(N=1000,SIZE=200):
     carr = np.random.rand(256, 3); carr[0,:] = 0
     cmap = matplotlib.colors.ListedColormap(carr)
     plt.subplot(121)
-    plt.imshow(labels[50], cmap=cmap)
+    plt.imshow(labels[SIZE/2], cmap=cmap)
     plt.subplot(122)
-    plt.imshow(flabels[50], cmap=cmap)
+    plt.imshow(flabels[SIZE/2], cmap=cmap)
     import IPython; IPython.embed()
 
 def circle_test():
@@ -241,15 +242,15 @@ if __name__ == '__main__':
 
     # Parallel(n_jobs=4)(delayed(execute)(path) for path in files)
 
-    for path in [files[0]]:
+    for path in files:
         print 'Processing', path
         b1 = boxio.readbox(path)
-        # d1 = 1 - b1.box_data[::2,::2,::2]
-        d1 = 1 - b1.box_data#[:250,:250,:250]
+        d1 = 1 - b1.box_data[::2,::2,::2]
+        #d1 = 1 - b1.box_data#[:252,:252,:252]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
         OUTFILE = './NPZ/watershed_z{0}.npz'.format(b1.z)
-        labels, markers, EDT, smEDT = watershed_3d(d1, h=0.7, target='gpu', connectivity=3)
+        labels, markers, EDT, smEDT = watershed_3d(d1, h=0.35, target='gpu', connectivity=3)
         Q_a = 1 - b1.param_dict['nf']
         print Q_a
         print 'saving', OUTFILE

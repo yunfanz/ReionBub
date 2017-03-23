@@ -121,3 +121,4 @@ def read_dcm(file_name):
   
 def strip_extension(path):
   return os.path.splitext(path)[0]
+
