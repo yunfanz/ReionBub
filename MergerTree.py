@@ -1,5 +1,5 @@
 import numpy as np
-import os, fnmatch
+from IO_utils import *
 import matplotlib.pyplot as plt
 import matplotlib
 from scipy import ndimage
@@ -30,30 +30,29 @@ def bubbleprops(label_image, intensity_image=None, cache=True, areasort=True):
     return bubbles
 
 
-def find_files(directory, pattern='watershed_*.npz'):
-    '''Recursively finds all files matching the pattern.'''
-    files = []
-    for root, dirnames, filenames in os.walk(directory):
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(root, filename))
-    if len(files) == 0:
-    	raise Exception("Could not find any files")
-    return np.sort(files)
-
 def bbox_merit(b1L, b2L, b1R, b2R):
 	bb = np.where(b1R<b2R, b1R, b2R) - np.where(b1L>b2L, b1L, b2L)
-	return float(np.product(bb))**2/np.product(b1R-b1L)/np.product(b2R-b2L)
+	vol1 = np.product(b1R-b1L)
+	vol2 = np.product(b2R-b2L)
+	if True:
+		return float(np.product(bb))/max(vol1, vol2)
+	else:
+		return float(np.product(bb))**2/np.product(b1R-b1L)/np.product(b2R-b2L)
 
 def get_merit(coords1, coords2):
 	N1, N2 = coords1.shape[0], coords2.shape[0]
 	N12 = float(len( set([tuple(row) for row in coords1]) & set([tuple(row) for row in coords2])))
-	return N12**2/N1/N2
+	if True:
+		#print 'N12, N1, N2', N12, N1, N2, N12/max(N1, N2)
+		return N12/max(N1, N2)
+	else:
+		return N12**2/N1/N2
 
 def get_bubbles(file, connectivity=3):
 	img = np.load(file)['labels']
 	labeled = measure.label(img, connectivity=connectivity)
-	mask = labeled > 0
-	labeled  = labeled *morphology.remove_small_objects(mask, 30)
+	#mask = labeled > 0
+	#labeled  = labeled *morphology.remove_small_objects(mask, 30)
 
 	return bubbleprops(labeled)
 
@@ -71,7 +70,7 @@ class MergerTree:
 			file = self.files[n]
 			if n == 0:
 				R = get_bubbles(file)
-				R = R[:self.maxnodes]
+				R = [R[0]]  #only one root
 				for r in R:
 					name = str(n)+'_'+str(r.label)
 					print name, r.area, r.centroid()
@@ -82,12 +81,17 @@ class MergerTree:
 				R = get_bubbles(file)
 				newRup = []
 				print "L", len(Rup), len(self.Tree.get_leaves())
+				root = self.Tree.get_tree_root()
 				for i, leaf in enumerate(self.Tree.get_leaves()):
+					
+					level = int(leaf.name.split('_')[0])
+					#assert level == int(root.get_distance(leaf)-1)
+					#print level, n, int(root.get_distance(leaf)-1)
+					if level != n-1: continue  #make sure we're operating on the lower level leaves only 
 					print leaf
 					ind = int(leaf.name.split('_')[1])
 					rup = None
 					for r in Rup:
-						print ind, r.label
 						if r.label == ind:
 							rup = r
 					if rup is None:
@@ -96,6 +100,8 @@ class MergerTree:
 					leaf.add_features(vol=rup.area)
 					
 					assert ind == int(rup.label)
+					# R, merits = self.find_merger(rup, R, returnmerit=True)
+					# print merits
 					R = self.find_merger(rup, R)
 					for r in R:
 						name = str(n)+'_'+str(r.label)
@@ -104,13 +110,18 @@ class MergerTree:
 					newRup += R
 				Rup = newRup
 
-	def find_merger(self, r1, R2):
+	def find_merger(self, r1, R2, returnmerit=False):
 		print len(R2)
 		R2 = self.overlap_bbox(r1, R2)
 		print len(R2)
-		R2 = sorted(R2, key=lambda r: get_merit(r1.coords, r.coords))
+		R2 = sorted(R2, key=lambda r: get_merit(r1.coords, r.coords), reverse=True)
 		if len(R2)> self.maxnodes:
 			R2 = R2[:self.maxnodes]
+		if returnmerit:
+			merits = []
+			for r2 in R2:
+				merits.append(get_merit(r1.coords, r2.coords))
+			return R2, merits
 		return R2
 
 	def overlap_bbox(self, r1, R2, keep=20):
@@ -163,15 +174,34 @@ def get_style():
     ts.show_branch_length = True
     ts.show_branch_support = True
     return ts
+def parse_name(name):
+	return [int(num) for num in name.split('_')]
+
+def get_top_dict(T):
+	cnt = 0
+	dic = {}
+	for node in T.Tree.traverse('preorder'):
+		if cnt >T.TreeDepth: break
+		cnt += 1; print node.name
+		for child in node.get_children():
+			lvl, lab = parse_name(child.name)
+			dic[lvl] = dic.get(lvl, []) + [lab]
+	return dic
+
+
 
 if __name__=='__main__':
 	#DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
 	#DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
 	DIR = './NPZ/'
 	files = find_files(DIR)
-	T = MergerTree(files, maxnodes=2)
+	T = MergerTree(files, maxnodes=3)
 	T.build()
-	# import IPython; IPython.embed()
+	#import IPython; IPython.embed()
 	ts = get_style()
 	print T.Tree
-	T.Tree.show(tree_style=ts)
+	dic = get_top_dict(T)
+	print dic
+	save_obj(dic, '3nodeTree')
+	#T.Tree.show(tree_style=ts)
+	import IPython; IPython.embed()

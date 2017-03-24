@@ -16,7 +16,7 @@ def find_files(directory, pattern='watershed_*.npz'):
 def sample(files, layer=100, mode='labels'):
 	"""mode can be labels, EDT, smEDT, markers"""
 	Nplots = 12
-	ncols = 2
+	ncols = 4
 	if len(files) > Nplots: files = files[:Nplots]
 	nrows = len(files)/ncols
 	if len(files)%ncols > 0: nrows +=1
