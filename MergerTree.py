@@ -34,7 +34,7 @@ def bbox_merit(b1L, b2L, b1R, b2R):
 	bb = np.where(b1R<b2R, b1R, b2R) - np.where(b1L>b2L, b1L, b2L)
 	vol1 = np.product(b1R-b1L)
 	vol2 = np.product(b2R-b2L)
-	if True:
+	if False:
 		return float(np.product(bb))/max(vol1, vol2)
 	else:
 		return float(np.product(bb))**2/np.product(b1R-b1L)/np.product(b2R-b2L)
@@ -42,7 +42,7 @@ def bbox_merit(b1L, b2L, b1R, b2R):
 def get_merit(coords1, coords2):
 	N1, N2 = coords1.shape[0], coords2.shape[0]
 	N12 = float(len( set([tuple(row) for row in coords1]) & set([tuple(row) for row in coords2])))
-	if True:
+	if False:
 		#print 'N12, N1, N2', N12, N1, N2, N12/max(N1, N2)
 		return N12/max(N1, N2)
 	else:
@@ -57,11 +57,12 @@ def get_bubbles(file, connectivity=3):
 	return bubbleprops(labeled)
 
 class MergerTree:
-	def __init__(self, files, maxnodes=1):
+	def __init__(self, files, maxnodes=1, min_merit=0.03):
 		self.Tree = Tree()
 		self.TreeDepth = len(files)
 		self.maxnodes = maxnodes
 		self.files = files
+		self.min_merit = min_merit
 		print files
 
 	def build(self):
@@ -73,14 +74,13 @@ class MergerTree:
 				R = [R[0]]  #only one root
 				for r in R:
 					name = str(n)+'_'+str(r.label)
-					print name, r.area, r.centroid()
+					print 'Root:', name, r.area, r.centroid()
 					self.Tree.add_child(name=name)
 				Rup = R
 			else:
 				if len(Rup) == 0: break
 				R = get_bubbles(file)
 				newRup = []
-				print "L", len(Rup), len(self.Tree.get_leaves())
 				root = self.Tree.get_tree_root()
 				for i, leaf in enumerate(self.Tree.get_leaves()):
 					
@@ -102,10 +102,10 @@ class MergerTree:
 					assert ind == int(rup.label)
 					# R, merits = self.find_merger(rup, R, returnmerit=True)
 					# print merits
-					R = self.find_merger(rup, R)
-					for r in R:
+					R, merits = self.find_merger(rup, R, returnmerit=True)
+					for i, r in enumerate(R):
+						if merits[i] < self.min_merit: continue
 						name = str(n)+'_'+str(r.label)
-						print name
 						leaf.add_child(name=name)
 					newRup += R
 				Rup = newRup
@@ -178,6 +178,7 @@ def parse_name(name):
 	return [int(num) for num in name.split('_')]
 
 def get_top_dict(T):
+	"""return dictionary of the descendants of the top bubble"""
 	cnt = 0
 	dic = {}
 	for node in T.Tree.traverse('preorder'):
@@ -186,6 +187,18 @@ def get_top_dict(T):
 		for child in node.get_children():
 			lvl, lab = parse_name(child.name)
 			dic[lvl] = dic.get(lvl, []) + [lab]
+	return dic
+
+def get_all_dict(T):
+	"""return dictionary of all nodes keyed by level"""
+	dic = {}
+	for node in T.Tree.traverse():
+		try:
+			lvl, lab = parse_name(node.name)
+		except:
+			print 'Skipping', node.name
+			continue
+		dic[lvl] = dic.get(lvl, []) + [lab]
 	return dic
 
 
@@ -200,8 +213,8 @@ if __name__=='__main__':
 	#import IPython; IPython.embed()
 	ts = get_style()
 	print T.Tree
-	dic = get_top_dict(T)
+	dic = get_all_dict(T)
 	print dic
-	save_obj(dic, '3nodeTree')
+	save_obj(dic, 'allnodeTree')
 	#T.Tree.show(tree_style=ts)
 	import IPython; IPython.embed()

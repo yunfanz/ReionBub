@@ -16,7 +16,7 @@ __constant__ int N_ys[26] = {0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,1,1,1,0,-1,-1,-1,0,
 __constant__ int N_zs[26] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1};
 
 // Step 1. Label local minima or flatland as PLATEAU
-__global__ void descent_kernel(float* labeled, const int w, const int h, const int d)
+__global__ void descent_kernel(double* labeled, const int w, const int h, const int d)
 {
   int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
   int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
@@ -75,14 +75,14 @@ __global__ void descent_kernel(float* labeled, const int w, const int h, const i
 
 }
 //step1B stabilize the plateau and remove saddle points
-__global__ void stabilize_kernel(float* L, int* C, const int w, const int h, const int d)
+__global__ void stabilize_kernel(double* L, int* C, const int w, const int h, const int d)
 {
   int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
   int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
   int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
   int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
  
-  __shared__ float s_L[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
+  __shared__ double s_L[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
   __shared__ float s_I[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
   int img_x = L2I(i,tx);
   int img_y = L2I(j,ty);
@@ -126,7 +126,7 @@ __global__ void stabilize_kernel(float* L, int* C, const int w, const int h, con
 }
 
 // Step 2A: change the PLATEAU labels to be location p+1
-__global__ void increment_kernel(float* L, const int w, const int h, const int d)
+__global__ void increment_kernel(double* L, const int w, const int h, const int d)
 {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
   int j = blockDim.y * blockIdx.y + threadIdx.y;
@@ -134,19 +134,19 @@ __global__ void increment_kernel(float* L, const int w, const int h, const int d
   int p = INDEX(k,j,i,w);
 
   if (k < d && j < h && i < w && L[p] == PLATEAU) {
-    L[p] = p;
+    L[p] = p + 1;
   }
 }
 
 // Step 2B. Propagate the labels of the plateaus (iterate till convergence)
-__global__ void minima_kernel(float* L, int* C, const int w, const int h, const int d)
+__global__ void minima_kernel(double* L, int* C, const int w, const int h, const int d)
 {
   int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
   int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
   int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
   int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
  
-  __shared__ float s_L[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
+  __shared__ double s_L[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
   int size = BLOCK_SIZE - 2;
   int img_x = L2I(i,tx);
   int img_y = L2I(j,ty);
@@ -174,16 +174,11 @@ __global__ void minima_kernel(float* L, int* C, const int w, const int h, const 
   int active = (j < new_h && i < new_w && k < new_d && s_L[s_p] > 0) ? 1 : 0;
 
   if (active == 1 && ghost == 0) {
-    float I_p = tex3D(img,img_x,img_y,img_z); 
-    float I_q;
     for (int kk = 0; kk < 26; kk++) {
       int n_x = N_xs[kk] + tx; int n_y = N_ys[kk] + ty; int n_z = N_zs[kk] + tz;
       int s_q = INDEX(n_z,n_y,n_x,BLOCK_SIZE);
-      int n_tx = L2I(i,n_x); int n_ty = L2I(j,n_y); int n_tz = L2I(k,n_z);
-      int q = INDEX(n_tz,n_ty,n_tx,w);
-      I_q = tex3D(img,n_tx,n_ty,n_tz);
       if (s_L[s_q] == INF) continue;
-      if (s_L[s_q] < s_L[s_p] && I_p == I_q) //if not plateau, propagete to lower image values
+      if (s_L[s_q] > s_L[s_p]) //if not plateau, propagete to lower image values
                                //if plateau propagate to higher indices
         s_L[s_p] = s_L[s_q];
     }
@@ -196,14 +191,14 @@ __global__ void minima_kernel(float* L, int* C, const int w, const int h, const 
 
 
 // Step 3.
-__global__ void plateau_kernel(float* L, int* C, const int w, const int h, const int d)
+__global__ void plateau_kernel(double* L, int* C, const int w, const int h, const int d)
 {
   int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
   int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
   int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
   int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
  
-  __shared__ float s_L[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
+  __shared__ double s_L[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
   int size = BLOCK_SIZE - 2;
   int img_x = L2I(i,tx);
   int img_y = L2I(j,ty);
@@ -234,7 +229,7 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
     s_L[p] == PLATEAU && ghost == 0) {
     float I_p = tex3D(img,img_x,img_y,img_z); 
     float I_q;
-    int n_x, n_y, n_z; float L_q;
+    int n_x, n_y, n_z; double L_q;
 
     for (int kk = 0; kk < 26; kk++) {
       n_x = N_xs[kk]+tx; n_y = N_ys[kk]+ty; n_z = N_zs[kk]+tz;
@@ -252,38 +247,18 @@ __global__ void plateau_kernel(float* L, int* C, const int w, const int h, const
   }
 
 }
-
 // Step 4.
-__global__ void flood_pkernel(float* L, int* C, const int w, const int h, const int d)
+__global__ void flood_kernel(double* L, int* C, const int w, const int h, const int d)
 {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
   int j = blockDim.y * blockIdx.y + threadIdx.y;
   int k = blockDim.z * blockIdx.z + threadIdx.z;
   int p = INDEX(k,j,i,w); int q;
 
-  if (j < h && i < w && k < d && L[p] > PLATEAU) {
-    q = L[p];
-    //if (L[q] >= 0 && L[p] != L[q]) {
-    if (L[p] != L[q]) {
-      L[p] = L[q];
-      atomicAdd(&C[0],1);
-    }
-  }
-}
-
-
-// Step 4.
-__global__ void flood_kernel(float* L, int* C, const int w, const int h, const int d)
-{
-  int i = blockDim.x * blockIdx.x + threadIdx.x;
-  int j = blockDim.y * blockIdx.y + threadIdx.y;
-  int k = blockDim.z * blockIdx.z + threadIdx.z;
-  int p = INDEX(k,j,i,w); int q;
-
-  if (j < h && i < w && k < d && L[p] < 0) {
+  if (j < h && i < w && k < d && L[p] <= 0) {
     q = -L[p];
-    //if (L[q] >= 0 && L[p] != L[q]) {
-    if (L[p] != L[q]) {
+    if (L[q] > 0 && L[p] != L[q]) {
+    //if (L[p] != L[q]) {
       L[p] = L[q];
       atomicAdd(&C[0],1);
     }

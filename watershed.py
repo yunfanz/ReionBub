@@ -9,6 +9,7 @@ import pylab as plt
 import seaborn as sns
 import ws3d_gpu, edt_cuda
 from joblib import Parallel, delayed
+from IO_utils import *
 #possibly useful
 #morphology.remove_small_objects
 
@@ -141,14 +142,6 @@ def watershed_21cmBox(path):
     box = boxio.readbox(path)
     return watershed_3d(box.box_data)
 
-def find_files(directory, pattern='xH_nohalos_*'):
-    '''Recursively finds all files matching the pattern.'''
-    files = []
-    for root, dirnames, filenames in os.walk(directory):
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(root, filename))
-    return np.sort(files)
-
 def mc_test(N=1000,SIZE=200):
     x, y, z = np.indices((SIZE, SIZE,SIZE))
     image = np.zeros_like(x)
@@ -218,7 +211,7 @@ if __name__ == '__main__':
     #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
     #PATH = DIR+FILE
-    files = find_files(DIR)
+    files = find_files(DIR, pattern='xH_nohalos*')
     #mc_test()
 
     #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
@@ -242,14 +235,14 @@ if __name__ == '__main__':
 
     # Parallel(n_jobs=4)(delayed(execute)(path) for path in files)
 
-    for path in files:
+    for path in files[1:2]:
         print 'Processing', path
         b1 = boxio.readbox(path)
         d1 = 1 - b1.box_data[::2,::2,::2]
         #d1 = 1 - b1.box_data#[:252,:252,:252]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
-        OUTFILE = './NPZ/watershed_z{0}.npz'.format(b1.z)
+        OUTFILE = './NPZ/dwatershed_z{0}.npz'.format(b1.z)
         labels, markers, EDT, smEDT = watershed_3d(d1, h=0.35, target='gpu', connectivity=3)
         Q_a = 1 - b1.param_dict['nf']
         print Q_a

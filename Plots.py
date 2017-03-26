@@ -2,16 +2,7 @@ import numpy as np
 import os, fnmatch
 import matplotlib.pyplot as plt
 import matplotlib
-
-def find_files(directory, pattern='watershed_*.npz'):
-    '''Recursively finds all files matching the pattern.'''
-    files = []
-    for root, dirnames, filenames in os.walk(directory):
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(root, filename))
-    if len(files) == 0:
-    	raise Exception("Could not find any files")
-    return np.sort(files)
+from IO_utils import *
 
 def sample(files, layer=100, mode='labels'):
 	"""mode can be labels, EDT, smEDT, markers"""
@@ -44,5 +35,5 @@ if __name__=='__main__':
 	#DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
 	#DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
 	DIR = './NPZ/'
-	files = find_files(DIR)
+	files = find_files(DIR, pattern='dwatershed*')
 	sample(files, mode='labels')

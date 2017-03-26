@@ -11,7 +11,7 @@ print "Compiling CUDA kernels..."
 
 # PyCUDA wrapper for watershed.
 def watershed(I, mask=None):
-  kernel_source = open("watershed_save.cu").read()
+  kernel_source = open("watershed.cu").read()
   main_module = nvcc.SourceModule(kernel_source)
   descent_kernel = main_module.get_function("descent_kernel")
   stabilize_kernel = main_module.get_function("stabilize_kernel")
@@ -42,7 +42,7 @@ def watershed(I, mask=None):
 
   # Initialize variables.
   labeled       = np.zeros([height,width,depth]) 
-  labeled       = np.float32(labeled)
+  labeled       = np.float64(labeled)
   width         = np.int32(width)
   height        = np.int32(height)
   depth         = np.int32(depth)
