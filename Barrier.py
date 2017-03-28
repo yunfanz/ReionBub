@@ -71,7 +71,8 @@ if __name__=="__main__":
 		R = R[:5000]
 		RE = np.asarray([r.equivalent_diameter/2 for r in R])/scale
 		ES = ESets(z=z)
-		R0L = ES.R0(RE)
+		#R0L = ES.R0(RE)
+		R0L = RE
 		deltax = np.asarray([r.mean_intensity for r in R])
 		deltax /= ES.fgrowth
 		S = sig0(R0L)
@@ -85,7 +86,7 @@ if __name__=="__main__":
 	#import IPython; IPython.embed()
 	plt.figure()
 	
-	sns.regplot('S','deltax', df, scatter_kws={'hue': "BoxSize"})
+	sns.regplot('S','deltax', df)#, scatter_kws={'hue': "BoxSize"})
 	plt.show()
 
 
