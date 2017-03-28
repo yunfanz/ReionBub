@@ -250,10 +250,13 @@ def dlinSdlnR(lnR,d=0.001):
 Rfile = n.load(FITDIR+'radius_z12.npz')
 R0l,REl = Rfile['arr_0'],Rfile['arr_1']
 fR = interp1d(REl,R0l,kind='cubic')
-def R0Lag(RE, z=12.):
+def R0Lag(RE, z=12.): 
 	return fR(RE)
 
-
+#To create Rfile:
+#R0L = np.logspace(-1,2, num=1000)
+#REL = ES.RcovEul(R0L)
+#np.savez('radius_z{}'.format(ES.z), R0L, REL)
 class ESets:
 	def __init__(self, cosmo=Planck13, z=12., zeta=40., Tvir=1.E4):
 		self.cosmo = cosmo
@@ -276,7 +279,7 @@ class ESets:
 		S0 = sig0(R0)
 		return BFZH(S0,self.deltac,self.smin,self.K)
 	def RcovEul(self, R0):
-		return R0*RcovEul(self.z, del0=self.BFZH(R0))
+		return R0*RcovEul(del0=self.BFZH(R0), z=self.z)
 	def R0(self, RE):
 		return R0Lag(RE, self.z)
 
