@@ -27,8 +27,8 @@ def find_deltax(directory, z):
 	return find_files(directory, pattern=pattern)
 
 if __name__=="__main__":
-	DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-	#DIR = '/data2/21cmFast/Barrierz_12/Boxes/'
+	#DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+	DIR = '/data2/21cmFast/Barrierz_12/Boxes/'
 	# z = 11.99
 	# npzfile = './NPZ/dwatershed_z{}.npz'.format(z)
 	# labels = np.load(npzfile)['labels']
@@ -49,8 +49,8 @@ if __name__=="__main__":
 	# S1, deltax1 = S, deltax
 
 
-	z = 11.99
-	npzfile = './NPZ/dwatershed_z{}.npz'.format(z)
+	z = 12.00
+	#npzfile = './NPZ/dwatershed_z{}.npz'.format(z)
 	wspattern = 'dwatershed_z{}*.npz'.format(z)
 	npzfiles = find_files('./NPZ/', pattern=wspattern)
 	deltax_files = find_deltax(DIR, z)
@@ -68,7 +68,7 @@ if __name__=="__main__":
 		#deltax_image = rescale(deltax_image, 0.5)
 		R = measure.regionprops(labels, intensity_image=deltax_image)
 		print len(R)
-		#R = R[:20000]
+		R = R[:5000]
 		RE = np.asarray([r.equivalent_diameter/2 for r in R])/scale
 		ES = ESets(z=z)
 		R0L = ES.R0(RE)
@@ -85,7 +85,7 @@ if __name__=="__main__":
 	#import IPython; IPython.embed()
 	plt.figure()
 	
-	sns.regplot('S','deltax', df)
+	sns.regplot('S','deltax', df, scatter_kws={'hue': "BoxSize"})
 	plt.show()
 
 
