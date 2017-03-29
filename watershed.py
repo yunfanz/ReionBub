@@ -206,9 +206,9 @@ if __name__ == '__main__':
     #DIR = '../pkgs/21cmFAST/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
     #DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
-    #DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
 
-    DIR = '/data2/21cmFast/Barrierz_12/Boxes/'
+    #DIR = '/data2/21cmFast/Barrierz_12/Boxes/'
     #FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
     #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
@@ -244,10 +244,10 @@ if __name__ == '__main__':
         #d1 = 1 - b1.box_data#[:252,:252,:252]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
-        OUTFILE = './NPZ/dwatershed_z{0}_L{1}.npz'.format(b1.z, b1.param_dict['BoxSize'])
+        OUTFILE = './NPZ/dwatershed_z{0}_L{1}_Iter{2}.npz'.format(b1.z, b1.param_dict['BoxSize'], b1.param_dict['Iteration'])
         labels, markers, EDT, smEDT = watershed_3d(d1, h=0.7, target='gpu', connectivity=3)
         Q_a = 1 - b1.param_dict['nf']
-        print Q_a
+        print 'Q', Q_a
         print 'saving', OUTFILE
         np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=smEDT)
 

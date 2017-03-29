@@ -27,13 +27,14 @@ import numpy
 from Box import *
 
 
-def readbox(filename):
+def readbox(filename, quiet=False):
   #read a 21cmfast output file and return a Box object with data
 
   #parse filename to (1) check its a 21cmFast box (2) get box parameters
   # (3) identify what sort of box it is
   param_dict=parse_filename(filename)
-  print param_dict
+  if not quiet:
+    print param_dict
 
   #open box and read in data
   dim=param_dict['HIIdim']
@@ -125,6 +126,19 @@ def parse_filename(filepath):
   else:
     print 'Warning: no information on box size'
     print filename
+
+  #Added by Zhang
+  match = re.search('_Iter([0-9]+)',filename)
+  if match:
+    Iteration=match.group(1)
+  else:
+    Iteration = 0
+  param_dict['Iteration']=int(Iteration)
+
+  match = re.search('_L([0-9]+)',filename)
+  if match:
+    BoxSize=match.group(1)
+    param_dict['BoxSize']=int(BoxSize)
 
   #for k in param_dict.keys():
   #  print k,'\t', param_dict[k]

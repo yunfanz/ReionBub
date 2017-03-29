@@ -23,69 +23,71 @@ def rescale(image, factor):
 
 def find_deltax(directory, z):
 	pattern = 'updated_smoothed_deltax_z0{}'.format(z)+'*'
-	print pattern
 	return find_files(directory, pattern=pattern)
 
 if __name__=="__main__":
-	#DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-	DIR = '/data2/21cmFast/Barrierz_12/Boxes/'
-	# z = 11.99
-	# npzfile = './NPZ/dwatershed_z{}.npz'.format(z)
-	# labels = np.load(npzfile)['labels']
-	# labels = measure.label(labels, connectivity=3)
-	# deltax_file = find_deltax(DIR, z)[0]
-	# deltax_image = boxio.readbox(deltax_file).box_data
-	# print labels.shape, deltax_image.shape
-	# #deltax_image = rescale(deltax_image, 0.5)
-	# R = measure.regionprops(labels, intensity_image=deltax_image)
-	# R = R[:1000]
-	# RE = [r.equivalent_diameter/2 for r in R]
-	# ES = ESets(z=z)
-	# R0L = ES.R0(RE)
-	# deltax = np.asarray([r.mean_intensity for r in R])
-	# deltax /= ES.fgrowth
-
-	# S = [sig0(rl) for rl in R0L]
-	# S1, deltax1 = S, deltax
+	DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
 
 
 	z = 12.00
 	#npzfile = './NPZ/dwatershed_z{}.npz'.format(z)
-	wspattern = 'dwatershed_z{}*.npz'.format(z)
+	wspattern = 'dwatershed_z{}_L*.npz'.format(z)
 	npzfiles = find_files('./NPZ/', pattern=wspattern)
 	deltax_files = find_deltax(DIR, z)
 	dframes = []
 	for i, npzfile in enumerate(npzfiles):
+		npz_params = boxio.parse_filename(npzfile)
+		if npz_params['BoxSize'] < 20:
+			continue
 		labels = np.load(npzfile)['labels']
 		scale = np.load(npzfile)['scale']
-		print scale
 		labels = measure.label(labels, connectivity=3)
-		deltax_file = deltax_files[i]
-		print deltax_file
+
+		#looking for matching deltax file
+		for file in deltax_files:
+			if (boxio.parse_filename(file)['BoxSize'] == npz_params['BoxSize']) and (boxio.parse_filename(file)['Iteration'] == npz_params['Iteration']):
+				deltax_file = file
+				print "Found matching files:", npzfile, deltax_file
+				break
+
+		
 		b1 = boxio.readbox(deltax_file)
 		deltax_image = b1.box_data
-		print labels.shape, deltax_image.shape
 		#deltax_image = rescale(deltax_image, 0.5)
 		R = measure.regionprops(labels, intensity_image=deltax_image)
 		print len(R)
-		R = R[:5000]
-		RE = np.asarray([r.equivalent_diameter/2 for r in R])/scale
+		R = R[:20000]
+		
 		ES = ESets(z=z)
-		#R0L = ES.R0(RE)
-		R0L = RE
+		RE = np.asarray([r.equivalent_diameter/2 for r in R])/scale
+		
+		#R0L = RE
 		deltax = np.asarray([r.mean_intensity for r in R])
 		deltax /= ES.fgrowth
-		S = sig0(R0L)
+		
 		dx = 1/scale
 		L = b1.param_dict['BoxSize']
-		df = pd.DataFrame({'RL': R0L, 'RE':RE, 'S': S, 'deltax':deltax, 'BoxSize': L})
-		df = df.loc[df['RE'] > 10*dx]
-		df = df.loc[df['RE'] < L/10]
+		df = pd.DataFrame({'RE':RE, 'deltax':deltax, 'BoxSize': L})
+		#import IPython; IPython.embed()
+		df = df.loc[df['RE'] > max(5*dx, ES.R0min/2)] # 2 is arbitrary, we really want to compare R0L as below
+		#df = df.loc[df['RE'] < L/10]
+		if len(df.index) == 0: continue
+		try:
+			df['R0L'] = ES.R0(df['RE'])
+		except(ValueError):
+			print 'Below interpolation range, use  RE'
+			df['R0L'] = df['RE']
+		df = df.loc[df['R0L'] > ES.R0min]
+		df['S'] = sig0(df['R0L'])
 		dframes.append(df)
 	df = pd.concat(dframes)
+	SL = np.linspace(0, 1.1*np.amax(df['S']), 100)
+	bfzh = BFZH(SL,ES.deltac,ES.smin,ES.K)
+
 	#import IPython; IPython.embed()
+
 	plt.figure()
-	
+	plt.plot(SL, bfzh, 'r', linewidth=3)
 	sns.regplot('S','deltax', df)#, scatter_kws={'hue': "BoxSize"})
 	plt.show()
 
