@@ -25,6 +25,7 @@ This general script can render various boxes such as distance transform, ionizat
 isosurface.py 
 ```
 This script renders a single descendant bubble and its progenitors at each redshift slice, from the watershed and MergerTree output files. 
+
 ```VR_bubbles```
 Renders 3D VR-goggle style movies. 
 ![result](animation.gif)
