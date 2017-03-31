@@ -6,7 +6,7 @@ This projects requires the following external packages:
 numpy, matplotlib, scipy(ndimage), scikit-image, pycuda, ete3, vispy, pandas, seaborn, pyqt4 etc.
 ```
 ## 3D H-minima Transform and Watershed with PyCUDA
-A 3d watershed algorithm is included for segmentation. The watershed algorithm is partly based on [1-4] and modified from 5. Included is also a H-minima transform on Pycuda.
+A 3d watershed algorithm is included for segmentation. The watershed algorithm is partly based on [1-4] and modified from 5. In particular, a H-minima transform (also on Pycuda) is used to reduce over-segmentation.
 
 Sample usage:
 ```
@@ -32,6 +32,8 @@ Renders 3D VR-goggle style movies.
 
 ## IO
 ```tocmfastpy```  is a package that handles reading 21cmFast boxes, it is modified from [[7]]. 
+
+
 **References**
 
 [[1]](http://www.fem.unicamp.br/~labaki/Academic/cilamce2009/1820-1136-1-RV.pdf) Vitor B, Körbes A. Fast image segmentation by watershed transform on graphical hardware. In: Proceedings of the 17th International Conference on Systems, Signals and Image Processing, pp. 376-379, Rio de Janeiro, Brazil.
