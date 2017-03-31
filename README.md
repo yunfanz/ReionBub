@@ -29,7 +29,8 @@ This script renders a single descendant bubble and its progenitors at each redsh
 Renders 3D VR-goggle style movies. 
 ![result](animation.gif)
 
-
+## IO
+```tocmfastpy```  is a package that handles reading 21cmFast boxes, it is modified from [[7]]. 
 **References**
 
 [[1]](http://www.fem.unicamp.br/~labaki/Academic/cilamce2009/1820-1136-1-RV.pdf) Vitor B, Körbes A. Fast image segmentation by watershed transform on graphical hardware. In: Proceedings of the 17th International Conference on Systems, Signals and Image Processing, pp. 376-379, Rio de Janeiro, Brazil.
@@ -43,3 +44,5 @@ Renders 3D VR-goggle style movies.
 [[5]](https://github.com/louismullie/watershed-cuda/blob/master/ws_gpu.py) ws_gpu.py by louismullie
 
 [[6]](https://github.com/andreimesinger/21cmFAST) 21cmFast by Andrei Messinger
+
+[[7]](https://github.com/pritchardjr/tocmfastpy) tocmfastpy by Jonathan Pritchard
