@@ -33,9 +33,9 @@ def R2m(RL):
 dmS = np.load('sig0.npz')
 RLtemp, MLtemp,SLtemp = dmS['radius'], dmS['mass'],dmS['sig0']
 fs2m = interp1d(SLtemp,MLtemp)
-fsig0 = interp1d(RLtemp,SLtemp)
-def sig0(RL):
-	return fsig0(RL)
+# fsig0 = interp1d(RLtemp,SLtemp)
+# def sig0(RL):
+# 	return fsig0(RL)
 print 'generated fs2m'
 def S2M(S):
 	return fs2m(S)
@@ -57,8 +57,8 @@ def F(x):
 	return (x**3-3*x)/2*(erf(x*np.sqrt(5./2))+erf(x*np.sqrt(5./8)))+np.sqrt(2./5/np.pi)*((31.*x**2/4+8./5)*np.exp(-5.*x**2/8)+(x**2/2-8./5)*np.exp(-5.*x**2/2))
 def Deltac(z):
 	fgrowth = pb.fgrowth(z, cosmo['omega_M_0'])    # = D(z)/D(0)
-	#return 1.686/fgrowth
-	return 1.686*fgrowth                                                   #?????
+	return 1.686/fgrowth
+	#return 1.686*fgrowth                                                   #?????
 def pG(y,av,var):
 	return 1/np.sqrt(2*np.pi*var)*np.exp(-(y-av)**2/2/var)
 def B(z,beta,s):
@@ -228,7 +228,7 @@ if __name__ == "__main__":
 		for M0 in Mlist:
 			def newfunc(del0):
 				return fcoll_trapz_log(del0,M0,Z)*40-1
-			Dlist = np.linspace(3.,17.,8)
+			Dlist = np.linspace(3.,17.,4)
 			reslist = Parallel(n_jobs=num_cores)(delayed(newfunc)(d0) for d0 in Dlist)
 			print reslist
 
