@@ -25,8 +25,8 @@ def Del2k(k):
 def _klims(integrand, factor=1.e-4):
     """Integration limits used internally by the sigma_r functionp."""
     logk = np.arange(-20., 20., 0.1)
-    maxintegrand = np.max(integrand)
-    highmask = integrand > maxintegrand * factor
+    maxintegrand = np.max(np.abs(integrand))
+    highmask = np.abs(integrand) > maxintegrand * factor
     while highmask.ndim > logk.ndim:
         highmask = np.logical_or.reduce(highmask)
     mink = np.min(logk[highmask])
