@@ -254,7 +254,7 @@ if __name__ == "__main__":
 			p.figure()
 			p.plot(Slist,rootlist)
 			p.savefig('barrier_z{}.png'.format(Z))
-		except KeyboardInterrupt:
+		except: # KeyboardInterrupt:
 			# Introduce a line break after ^C is displayed so save message
 			# is on its own line.
 			print '\n'
