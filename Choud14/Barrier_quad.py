@@ -31,8 +31,11 @@ def R2m(RL):
 	return m
 
 dmS = np.load('sig0.npz')
-MLtemp,SLtemp = dmS['mass'],dmS['sig0']
+RLtemp, MLtemp,SLtemp = dmS['radius'], dmS['mass'],dmS['sig0']
 fs2m = interp1d(SLtemp,MLtemp)
+fsig0 = interp1d(RLtemp,SLtemp)
+def sig0(RL):
+	return fsig0(RL)
 print 'generated fs2m'
 def S2M(S):
 	return fs2m(S)
