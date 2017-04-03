@@ -7,7 +7,7 @@ from IO_utils import *
 def sample(files, layer=100, mode='labels'):
 	"""mode can be labels, EDT, smEDT, markers"""
 	Nplots = 12
-	ncols = 4
+	ncols = 3
 	if len(files) > Nplots: files = files[:Nplots]
 	nrows = len(files)/ncols
 	if len(files)%ncols > 0: nrows +=1
@@ -35,5 +35,5 @@ if __name__=='__main__':
 	#DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
 	#DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
 	DIR = './NPZ/'
-	files = find_files(DIR, pattern='dwatershed*')
+	files = find_files(DIR, pattern='dwatershed_z12*Iter0*')
 	sample(files, mode='labels')

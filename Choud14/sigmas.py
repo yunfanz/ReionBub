@@ -5,10 +5,16 @@ import cosmolopy.perturbation as pb
 import cosmolopy.density as cd
 from scipy.integrate import quad
 from scipy.interpolate import interp1d, interp2d
-from joblib import Parallel, delayed
+from tempfile import mkdtemp
+cachedir = mkdtemp()
+from joblib import Parallel, delayed, Memory
+memory = Memory(cachedir=cachedir, verbose=0)
 import multiprocessing
 num_cores = multiprocessing.cpu_count()
-
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
 
 cosmo = {'baryonic_effects':True,'omega_k_0':0,'omega_M_0':0.315, 'omega_b_0':0.0487, 'n':0.96, 'N_nu':0, 'omega_lambda_0':0.685,'omega_n_0':0., 'sigma_8':0.829,'h':0.673}
 NINT = 200
@@ -16,12 +22,23 @@ NINT = 200
 def RG(RL): return 0.46*RL
 def W(y): return 3.*(np.sin(y)-y*np.cos(y))/y**3.
 def WG(y): return np.exp(-y**2/2)
+# @lru_cache(maxsize=1000)
+# def _Del2k(k):
+#     Pk = pb.power_spectrum(k,0.0,**cosmo)
+#     Del2 = k**3*Pk/2./np.pi**2.
+#     return Del2
+# _Del2k_vec = np.vectorize(_Del2k)
+# def Del2k(k):
+#     if np.isscalar(k):
+#         return _Del2k(k)
+#     else:
+#         return _Del2k_vec(k)
+#         #return np.array([_Del2k(K) for K in k])
+@memory.cache
 def Del2k(k):
     Pk = pb.power_spectrum(k,0.0,**cosmo)
-    Del2k = (1.e-10*k)*k**2*Pk/2./np.pi**2.
-    #fgrowth = pb.fgrowth(z, cosmo['omega_M_0']) 
-    #Del2k0 = Del2k/fgrowth**2#*pb.norm_power(**cosmo)
-    return Del2k
+    Del2 = k**3*Pk/2./np.pi**2.
+    return Del2
 def _klims(integrand, factor=1.e-4):
     """Integration limits used internally by the sigma_r functionp."""
     logk = np.arange(-20., 20., 0.1)
@@ -42,11 +59,7 @@ def _sigG_integrand_log(logk,RL,j):
     return Del2k(k)*(k**(2*j))*WG(RG(RL)*k)**2
 def _sig0_integrand_log(logk,RL):
     k = np.exp(logk)
-    return (k *
-            (1.e-10 / (2. * np.pi**2.)) * k**2. * 
-            W(k*RL)**2. * 
-            pb.power_spectrum(k, 0.0, **cosmo))
-    #return Del2k(k)**W(RL*k)**2
+    return Del2k(k)*W(RL*k)**2
 def _sig1m_integrand_log(logk,RL):
     k = np.exp(logk)
     return Del2k(k)*(k**2)*WG(RG(RL)*k)*W(RL*k)
@@ -78,14 +91,14 @@ def _SXlog_scalar(RL,R0, method='trapz'):
     if method == 'trapz':
         logk = np.linspace(logk_lim[0], logk_lim[1], 100)
         integral = np.trapz(y=_SX_integrand_log(logk, RL, R0), x=logk)
-        return 1.e10*integral, 0.
+        return integral, 0.
     else:
         integral, error = quad(_SX_integrand_log,
                                   logk_lim[0],
                                   logk_lim[1],
                                   args=(RL, R0),
                                   limit=10000)#, epsabs=1e-9, epsrel=1e-9)
-        return 1.e10* integral, 1.e10 * error
+        return  integral, error
 _SXlog_vec = np.vectorize(_SXlog_scalar)
 
 def _sig1mXlog_scalar(RL,R0, method='trapz'): 
@@ -95,7 +108,7 @@ def _sig1mXlog_scalar(RL,R0, method='trapz'):
     if method == 'trapz':
         logk = np.linspace(logk_lim[0], logk_lim[1], NINT)
         integral = np.trapz(y=_sig1mX_integrand_log(logk, RL, R0), x=logk)
-        return 1.e10*integral, 0.
+        return integral, 0.
     else:
         # Integrate over logk from -infinity to infinity.
         integral, error = quad(_sig1mX_integrand_log,
@@ -103,16 +116,16 @@ def _sig1mXlog_scalar(RL,R0, method='trapz'):
                                   logk_lim[1],
                                   args=(RL, R0),
                                   limit=10000)#, epsabs=1e-9, epsrel=1e-9)
-        return 1.e10 * integral, 1.e10 * error
+        return integral, error
 _sig1mXlog_vec = np.vectorize(_sig1mXlog_scalar)
-
+@memory.cache
 def _sig1mlog_scalar(RL, method='trapz'): 
     logk_lim = _sig1m_klims(RL)
     #print "Integrating from logk = %.1f to %.1f." % logk_lim
     if method == 'trapz':
         logk = np.linspace(logk_lim[0], logk_lim[1], NINT)
         integral = np.trapz(y=_sig1m_integrand_log(logk, RL), x=logk)
-        return 1.e10*integral, 0.
+        return integral, 0.
     else:
         # Integrate over logk from -infinity to infinity.
         integral, error = quad(_sig1m_integrand_log,
@@ -120,16 +133,16 @@ def _sig1mlog_scalar(RL, method='trapz'):
                                   logk_lim[1],
                                   args=(RL),
                                   limit=10000)#, epsabs=1e-9, epsrel=1e-9)
-        return 1.e10 * integral, 1.e10 * error
+        return integral, error
 _sig1mlog_vec = np.vectorize(_sig1mlog_scalar)
-
+@memory.cache
 def _sigG_scalar(RL, j, method='trapz'): 
     logk_lim = _sigG_klims(RL, j)
     #print "Integrating from logk = %.1f to %.1f." % logk_lim
     if method == 'trapz':
         logk = np.linspace(logk_lim[0], logk_lim[1], NINT)
         integral = np.trapz(y=_sigG_integrand_log(logk, RL, j), x=logk)
-        return 1.e10*integral, 0.
+        return integral, 0.
     else:
         # Integrate over logk from -infinity to infinity.
         integral, error = quad(_sigG_integrand_log,
@@ -137,15 +150,16 @@ def _sigG_scalar(RL, j, method='trapz'):
                                   logk_lim[1],
                                   args=(RL, j),
                                   limit=10000)#, epsabs=1e-9, epsrel=1e-9)
-        return 1.e10 * integral, 1.e10 * error
+        return integral, error
 _sigG_vec = np.vectorize(_sigG_scalar)
+@memory.cache
 def _sig0_scalar(RL, method='trapz'): 
     logk_lim = _sig0_klims(RL)
     #print "Integrating from logk = %.1f to %.1f." % logk_lim
     if method == 'trapz':
         logk = np.linspace(logk_lim[0], logk_lim[1], NINT)
         integral = np.trapz(y=_sig0_integrand_log(logk, RL), x=logk)
-        return 1.e10*integral, 0.
+        return integral, 0.
     else:
         # Integrate over logk from -infinity to infinity.
         integral, error = quad(_sig0_integrand_log,
@@ -153,7 +167,7 @@ def _sig0_scalar(RL, method='trapz'):
                                   logk_lim[1],
                                   args=(RL),
                                   limit=10000)#, epsabs=1e-9, epsrel=1e-9)
-        return 1.e10 * integral, 1.e10 * error
+        return integral, error
 _sig0_vec = np.vectorize(_sig0_scalar)
 
 def SX(RL,R0, ret_err=False): 
@@ -186,6 +200,7 @@ def sigG(RL, j,  ret_err=False):
     if not ret_err:
         return sigG
     return sigG, err
+
 def sig0(RL, ret_err=False):
     if np.isscalar(RL):
         sig0, err = _sig0_scalar(RL)
@@ -209,6 +224,7 @@ if __name__=='__main__':
     lml = pb.radius_to_mass(lrl, **cosmo)
     lsig = Parallel(n_jobs=num_cores)(delayed(sig0)(rl) for rl in lrl)
     print lsig
+    memory.clear()
     #lsig = sig0(lrl)
     #import IPython; IPython.embed()
     #np.savez('sig0',radius=lrl,mass=lml,sig0=lsig)

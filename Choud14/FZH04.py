@@ -93,11 +93,12 @@ def ig_sig1mX(RL,R0,k):
     return Del2k(k)*(k**2)*WG(RG(RL)*k)*W(R0*k)/k
 def ig_SX(RL,R0,k):
     return Del2k(k)*W(RL*k)*W(R0*k)/k
-def sig0(RL,kf=50.,N=2000):
-    kmax = kf/RL
-    K = n.exp(n.linspace(n.log(0.0001),n.log(kmax),N))
-    Y = ig_sig0(RL,K)
-    return n.trapz(Y,K) 
+# def sig0(RL,kf=50.,N=2000):
+#     kmax = kf/RL
+#     K = n.exp(n.linspace(n.log(0.0001),n.log(kmax),N))
+#     Y = ig_sig0(RL,K)
+#     return n.trapz(Y,K) 
+from sigmas import sig0
 def sigG(RL,j,kf=150.,N=1000):
     kmax = kf/RL
     K = n.linspace(0.001,kmax,N)
@@ -290,10 +291,10 @@ def dlinSdlnR(lnR,d=0.001):
 
 ################################## MAIN ######################################
 
-p.figure()
-p.subplot(111)
 
-for z in [12.,16.]:
+
+
+for z in [12.]:
 	PLOT = True
 	zeta = 40.
 	K = scipy.special.erfinv(1-1./zeta)
@@ -334,7 +335,7 @@ for z in [12.,16.]:
 		del0 = BFZH(S0,deltac,smin,K)
 		VoV0 = (RcovEul(del0,z))**3
 		return VoV0/dlnRdlnR0(lnR0,S0,del0)*S0*fFZH(S0,zeta,bFZH0,bFZH1)*dlinSdlnR(lnR0)
-	if True:
+	if False:
 		print 'computing z=',z
 		#Q = quad(lambda lnR: VdndlnR(lnR),n.log(Rmin),3.5)  #integrated over eulerian coordinates
 		Q = quad(lambda lnR0: VdndlnR0(lnR0),n.log(R0min),3.5)  #integrated over eulerian coordinates
@@ -355,7 +356,9 @@ for z in [12.,16.]:
 			res = VdndlnR(lnr0)/Q
 			print n.exp(lnr0),res
 			normsize.append(res)
+		p.figure(1)
 		p.semilogx(n.exp(lnR),normsize,label=str(z))
+		p.legend()
 
 	
 	if False:
@@ -363,14 +366,23 @@ for z in [12.,16.]:
 		S0 = n.arange(0,S0max,0.2)
 		bFZH = deltac-n.sqrt(2*(smin-S0))*K
 		bFZHlin = bFZH0+bFZH1*S0
+		p.figure(2)
 		p.plot(S0,bFZH,'b', label=str(z))
 		p.plot(S0,bFZHlin,'b.-')
 		p.ylim([0,20])
 		p.xlim([0,25])
+		p.legend()
+	if True:
+		for i in range(100):
+			S0max = sig0(m2R(M0min))
+		S0 = n.arange(0,S0max,0.2)
+		bFZH = deltac-n.sqrt(2*(smin-S0))*K
+		bFZHlin = bFZH0+bFZH1*S0
+
 
 
 	
-p.legend()
+
 p.show()
 
 ################

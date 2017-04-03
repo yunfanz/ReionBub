@@ -10,6 +10,8 @@ from ete3 import Tree, TreeStyle, NodeStyle, faces, AttrFace, CircleFace
 class Bubble(measure._regionprops._RegionProperties):
 	def centroid(self):
 		return tuple(self.coords.mean(axis=0))
+	def ionization_center(self):
+		return
 
 def bubbleprops(label_image, intensity_image=None, cache=True, areasort=True):
     label_image = np.squeeze(label_image)
@@ -201,20 +203,65 @@ def get_all_dict(T):
 		dic[lvl] = dic.get(lvl, []) + [lab]
 	return dic
 
+def _merger_volume(node, bubblemask, file):
+	print file
+	children = node.get_children()
+	if len(children) == 0: return 0
+	mergermask = np.zeros_like(bubblemask)
+	data = np.load(file)['labels']
+	data = measure.label(data)
+	for child in children:
+		lvl, lab = parse_name(child.name)
+		mergermask = mergermask | (data == lab)
+	merge_vol= np.sum((bubblemask & mergermask))
+	return merge_vol
+
+
+
+
+def get_volume_history(T, files):
+	"""volumes of top progenitors at each redshift, and how much of that volume was present
+	at earlier redshift (i.e. due to merger)"""
+	prog_dict = get_top_dict(T)
+	prog_vol = []
+	cnt = 0
+	for node in T.Tree.traverse('preorder'):
+		if cnt >=T.TreeDepth: break
+		print '{}/{}'.format(cnt,T.TreeDepth), node.name
+		try:
+			lvl, lab = parse_name(node.name)
+		except:
+			print 'Skipping', cnt, node.name
+			continue
+		data = np.load(files[cnt])['labels']
+		data = measure.label(data)
+		bubblemask = data == lab
+		if cnt != T.TreeDepth-1:
+			merge_vol = _merger_volume(node, bubblemask, files[cnt+1])
+		else:
+			merge_vol = 0
+		tot_vol = np.sum(bubblemask)
+		prog_vol.append((tot_vol, merge_vol))
+		cnt += 1;
+	return prog_vol
+
+
 
 
 if __name__=='__main__':
 	#DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
 	#DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
 	DIR = './NPZ/'
-	files = find_files(DIR)
+	files = find_files(DIR, pattern='watershed_z*')
 	T = MergerTree(files, maxnodes=3)
 	T.build()
-	#import IPython; IPython.embed()
-	ts = get_style()
-	print T.Tree
-	dic = get_all_dict(T)
-	print dic
-	save_obj(dic, 'allnodeTree')
-	#T.Tree.show(tree_style=ts)
+	print get_volume_history(T, files)
+
 	import IPython; IPython.embed()
+	# ts = get_style()
+	# print T.Tree
+	# dic = get_all_dict(T)
+	# print dic
+	# save_obj(dic, 'allnodeTree')
+	# #T.Tree.show(tree_style=ts)
+	# import IPython; IPython.embed()

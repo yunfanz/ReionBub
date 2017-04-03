@@ -134,7 +134,7 @@ def integrand_trapz(del0,m,M0,R0,z):  #2s*f_ESP
 #!! varx can be negative
 
 	#b = np.arange(0.00001,30.,0.03)                      #TUNE
-	b = np.logspace(np.log10(0.01),np.log10(20.),200)
+	b = np.logspace(np.log10(0.001),np.log10(20.),200)
 	y = []
 	for bx in b:
 		newy = prob(bx)*subgrand_trapz(bx,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,R0,V,z)/2/s
@@ -226,33 +226,40 @@ if __name__ == "__main__":
 		p.plot(Slist,reslist)
 		p.show()
 	elif True:
-		for M0 in Mlist:
-			def newfunc(del0):
-				return fcoll_trapz_log(del0,M0,Z)*40-1
-			Dlist = np.linspace(3.,17.,8)
-			NJOBS = min(Dlist.size, num_cores)
-			reslist = Parallel(n_jobs=NJOBS)(delayed(newfunc)(d0) for d0 in Dlist)
-			print reslist
-
-			if reslist[0]*reslist[-1]>0: 
-				print "root not in range"
-			else:
-				print "enter second round of process"
-				i = 0
-				while reslist[i]*reslist[-1]<0: i+=1
-				Dlist2 = np.linspace(Dlist[i-1],Dlist[i],8)
-				reslist = Parallel(n_jobs=NJOBS)(delayed(newfunc)(d0) for d0 in Dlist2)
+		try:
+			for M0 in Mlist:
+				def newfunc(del0):
+					return fcoll_trapz_log(del0,M0,Z)*40-1
+				Dlist = np.linspace(3.,17.,8)
+				NJOBS = min(Dlist.size, num_cores)
+				reslist = Parallel(n_jobs=NJOBS)(delayed(newfunc)(d0) for d0 in Dlist)
 				print reslist
-				i = 0
-				while reslist[i]*reslist[-1]<0: i+=1
-				resroot = resinterp(Dlist2[i-1],Dlist2[i],reslist[i-1],reslist[i])
-				print 'Barrier height:', resroot
-				rootlist.append(resroot)
-		print rootlist
 
-		p.figure()
-		p.plot(Slist,rootlist)
-		p.savefig('barrier_z{}.png'.format(Z))
+				if reslist[0]*reslist[-1]>0: 
+					print "root not in range"
+				else:
+					print "enter second round of process"
+					i = 0
+					while reslist[i]*reslist[-1]<0: i+=1
+					Dlist2 = np.linspace(Dlist[i-1],Dlist[i],8)
+					reslist = Parallel(n_jobs=NJOBS)(delayed(newfunc)(d0) for d0 in Dlist2)
+					print reslist
+					i = 0
+					while reslist[i]*reslist[-1]<0: i+=1
+					resroot = resinterp(Dlist2[i-1],Dlist2[i],reslist[i-1],reslist[i])
+					print 'Barrier height:', resroot
+					rootlist.append(resroot)
+			print rootlist
+
+			p.figure()
+			p.plot(Slist,rootlist)
+			p.savefig('barrier_z{}.png'.format(Z))
+		except KeyboardInterrupt:
+			# Introduce a line break after ^C is displayed so save message
+			# is on its own line.
+			print '\n'
+		finally:
+			memory.clear()
 
 		
 	else:

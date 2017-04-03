@@ -1,5 +1,6 @@
 import numpy as np
 import os, fnmatch
+from sys import argv
 from scipy import ndimage
 from skimage import measure, morphology, segmentation
 from skimage.feature import peak_local_max
@@ -56,12 +57,16 @@ def local_maxima_gpu(arr, ionized, threshold_h=0.7, connectivity=2):
     s_arr, maxima = h_max_gpu(arr=arr,mask=ionized, maxima=None, h=threshold_h, n_iter=1000)
     return maxima, s_arr
 
-def watershed_3d(image, connectivity=2, h=0.7, target='cuda'):
+def watershed_3d(image, connectivity=2, h=0.7, target='cuda', edtfile=None):
     ionized = (image == 1.)
     #ionized = ionized*morphology.remove_small_objects(ionized, 3)  #speeds up later process
     if target == 'cuda' or target == 'gpu':
         print 'Computing EDT'
-        EDT = ndimage.distance_transform_edt(ionized)
+        EDT = None
+        try:
+            EDT = np.load(edtfile)['EDT']
+        except:
+            EDT = ndimage.distance_transform_edt(ionized)
         #EDT_c = edt_cuda.distance_transform_edt(arr=ionized)
         #
         maxima, smEDT = local_maxima_gpu(EDT.copy(), ionized, connectivity=connectivity, threshold_h=h)
@@ -201,43 +206,14 @@ def circle_test():
 
 
 if __name__ == '__main__':
-    #b1 = boxio.readbox('../pkgs/21cmFAST/TrialBoxes/xH_nohalos_z008.06_nf0.604669_eff20.0_effPLindex0.0_HIIfilter1_Mmin5.7e+08_RHIImax20_256_300Mpc')
-    #b1 = boxio.readbox('../pkgs/21cmFAST/Boxes/xH_nohalos_z010.00_nf0.865885_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_500_500Mpc')
-    #DIR = '../pkgs/21cmFAST/Boxes/'
-    #FILE = 'xH_nohalos_z010.00_nf0.145708_eff104.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax30_500_500Mpc'
-    #DIR = '/data2/lin0_logz10-15_zeta40/Boxes/'
+
     DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+    DIR = argv[1]
 
-    #DIR = '/data2/21cmFast/Barrierz_12/Boxes/'
-    #FILE = 'xH_nohalos_z010.00_nf0.219784_eff40.0_effPLindex0.0_HIIfilter1_Mmin8.3e+07_RHIImax30_500_500Mpc'
-    #FILE = 'xH_nohalos_z012.00_nf0.761947_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.4e+08_RHIImax30_500_500Mpc'
-    #FILE = 'xH_nohalos_z011.00_nf0.518587_eff104.0_effPLindex0.0_HIIfilter1_Mmin3.8e+08_RHIImax30_500_500Mpc'
-    #PATH = DIR+FILE
     files = find_files(DIR, pattern='xH_nohalos_z012*')
-    #mc_test()
+    
 
-    #PATH = '/home/yunfanz/Data/21cmFast/Boxes/xH_nohalos_z010.00_nf0.881153_eff20.0_effPLindex0.0_HIIfilter1_Mmin4.3e+08_RHIImax20_400_100Mpc'
-
-    # def execute(path, replace=True):
-	   # print 'Processing', path
-    #     b1 = boxio.readbox(path)
-    #     d1 = 1 - b1.box_data#[::5,::5,::5]
-    #     scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
-    #     OUTFILE = b1.param_dict['basedir']+'/cpuwatershed_z{0}.npz'.format(b1.z)
-    #     if (not replace) and os.path.exists(OUTFILE):
-    #         print 'File exists, skipping'
-    #         return
-
-    #     labels, markers, EDT, smEDT = watershed_3d(d1, h=-1, target='cpu')
-    #     #OUTFILE = b1.param_dict['basedir']+'/watershed_z'+str(b1.z)+'.npz'
-    #     Q_a = 1 - b1.param_dict['nf']
-    #     print Q_a
-    #     print 'saving', OUTFILE
-    #     np.savez(OUTFILE, Q=Q_a, scale=scale, labels=labels, markers=markers, EDT=EDT, smEDT=smEDT)
-
-    # Parallel(n_jobs=4)(delayed(execute)(path) for path in files)
-
-    for path in files:
+    for path in [files[0]]:
         print 'Processing', path
         b1 = boxio.readbox(path)
         d1 = 1 - b1.box_data
@@ -245,7 +221,7 @@ if __name__ == '__main__':
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
         OUTFILE = './NPZ/dwatershed_z{0}_L{1}_Iter{2}.npz'.format(b1.z, b1.param_dict['BoxSize'], b1.param_dict['Iteration'])
-        labels, markers, EDT, smEDT = watershed_3d(d1, h=0.7, target='gpu', connectivity=3)
+        labels, markers, EDT, smEDT = watershed_3d(d1, h=0.35, target='gpu', connectivity=3, edtfile=OUTFILE)
         Q_a = 1 - b1.param_dict['nf']
         print 'Q', Q_a
         print 'saving', OUTFILE
