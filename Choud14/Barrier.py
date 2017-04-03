@@ -45,7 +45,7 @@ def W(y): return 3/y**3*(n.sin(y)-y*n.cos(y))
 def WG(y): return n.exp(-y**2/2)
 def Del2k(k):
 	Pk = pb.power_spectrum(k,0.,**cosmo)
-	Del2k = k**3*Pk/2/n.pi**2
+	Del2k = (k*1.e-10)*k**2.*Pk/2./n.pi**2.
 	#fgrowth = pb.fgrowth(z, cosmo['omega_M_0']) 
 	#Del2k0 = Del2k/fgrowth**2#*pb.norm_power(**cosmo)
 	return Del2k
@@ -293,27 +293,7 @@ def fcoll_trapz_log(del0,M0,z,debug=False):
 def m2S(m):
 	return sig0(m2R(m))
 
-zeta = 40.
 
-# Z = float(opts.red)
-# M0 = zeta*mmin(Z)*float(opts.mul)
-# del0 = float(opts.del0)
-Z = 12.
-#M0 = zeta*mmin(Z)
-#Mlist = n.exp(n.linspace(n.log(M0),n.log(1000*M0),10))
-Slist = n.arange(7.,15.,1.)
-Mlist = S2M(Slist)
-rootlist = []
-#dlist = n.linspace(8,10,16)
-# for del0 in dlist:
-# 	res = fcoll_trapz_log(del0,M0,Z)
-# 	print m2S(M0), res[0]
-#Bracks = (())
-# def parafunc(S0,Z):
-# 	M0 = S2M(S0)
-# 	def newfunc(del0):
-# 		return fcoll_trapz_log(del0,M0,Z)*40-1
-# 	return brentq(newfunc,11,14.5,xtol=1.E-3,maxiter=100)
 
 	
 
@@ -323,42 +303,69 @@ def resinterp(x1,x2,y1,y2):
 	else:
 		return (y2*x1-y1*x2)/(y2-y1)
 
-if False:
-	reslist = Parallel(n_jobs=num_cores)(delayed(parafunc)(S0,Z) for S0 in Slist)
-	print reslist
-	p.figure()
-	p.plot(Slist,reslist)
-	p.show()
-elif True:
-	for M0 in Mlist:
-		def newfunc(del0):
-			return fcoll_trapz_log(del0,M0,Z)*40-1
-		Dlist = n.linspace(3.,17.,8)
-		reslist = Parallel(n_jobs=num_cores)(delayed(newfunc)(d0) for d0 in Dlist)
+if __name__ == "__main__":
+	def sig0(RL):
+		res = pb.sigma_r(RL, 0, **cosmo)
+		print res
+		return res[0]
+
+	zeta = 40.
+
+	# Z = float(opts.red)
+	# M0 = zeta*mmin(Z)*float(opts.mul)
+	# del0 = float(opts.del0)
+	Z = 12.
+	#M0 = zeta*mmin(Z)
+	#Mlist = n.exp(n.linspace(n.log(M0),n.log(1000*M0),10))
+	Slist = n.arange(7.,15.,1.)
+	Mlist = S2M(Slist)
+	rootlist = []
+	#dlist = n.linspace(8,10,16)
+	# for del0 in dlist:
+	# 	res = fcoll_trapz_log(del0,M0,Z)
+	# 	print m2S(M0), res[0]
+	#Bracks = (())
+	# def parafunc(S0,Z):
+	# 	M0 = S2M(S0)
+	# 	def newfunc(del0):
+	# 		return fcoll_trapz_log(del0,M0,Z)*40-1
+	# 	return brentq(newfunc,11,14.5,xtol=1.E-3,maxiter=100)
+	if False:
+		reslist = Parallel(n_jobs=num_cores)(delayed(parafunc)(S0,Z) for S0 in Slist)
 		print reslist
-
-		if reslist[0]*reslist[-1]>0: 
-			print "root not in range"
-		else:
-			print "enter second round of process"
-			i = 0
-			while reslist[i]*reslist[-1]<0: i+=1
-			Dlist2 = n.linspace(Dlist[i-1],Dlist[i],8)
-			reslist = Parallel(n_jobs=num_cores)(delayed(newfunc)(d0) for d0 in Dlist2)
+		p.figure()
+		p.plot(Slist,reslist)
+		p.show()
+	elif True:
+		for M0 in Mlist:
+			def newfunc(del0):
+				return fcoll_trapz_log(del0,M0,Z)*40-1
+			Dlist = n.linspace(3.,17.,8)
+			reslist = Parallel(n_jobs=num_cores)(delayed(newfunc)(d0) for d0 in Dlist)
 			print reslist
-			i = 0
-			while reslist[i]*reslist[-1]<0: i+=1
-			resroot = resinterp(Dlist2[i-1],Dlist2[i],reslist[i-1],reslist[i])
-			print 'Barrier height:', resroot
-			rootlist.append(resroot)
-	print rootlist
 
-	p.figure()
-	p.plot(Slist,rootlist)
-	p.show()
+			if reslist[0]*reslist[-1]>0: 
+				print "root not in range"
+			else:
+				print "enter second round of process"
+				i = 0
+				while reslist[i]*reslist[-1]<0: i+=1
+				Dlist2 = n.linspace(Dlist[i-1],Dlist[i],8)
+				reslist = Parallel(n_jobs=num_cores)(delayed(newfunc)(d0) for d0 in Dlist2)
+				print reslist
+				i = 0
+				while reslist[i]*reslist[-1]<0: i+=1
+				resroot = resinterp(Dlist2[i-1],Dlist2[i],reslist[i-1],reslist[i])
+				print 'Barrier height:', resroot
+				rootlist.append(resroot)
+		print rootlist
 
-	
-else:
-	print 'doing nothing'
-	#tplquad(All,mmin,M0,lambda x: 0, lambda x: 5., lambda x,y: gam(m2R(x))*y,lambda x,y: 10.,args=(del0,M0,z))
+		p.figure()
+		p.plot(Slist,rootlist)
+		p.show()
+
+		
+	else:
+		print 'doing nothing'
+		#tplquad(All,mmin,M0,lambda x: 0, lambda x: 5., lambda x,y: gam(m2R(x))*y,lambda x,y: 10.,args=(del0,M0,z))
 
