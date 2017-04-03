@@ -6,7 +6,7 @@ This projects requires the following external packages:
 numpy, matplotlib, scipy(ndimage), scikit-image, pycuda, ete3, vispy, pandas, seaborn, pyqt4 etc.
 ```
 ## 3D H-minima Transform and Watershed with PyCUDA
-A 3d watershed algorithm is included for segmentation. The watershed algorithm is partly based on [1-4] and modified from 5. Included is also a H-minima transform on Pycuda.
+A 3d watershed algorithm is included for segmentation. The watershed algorithm is partly based on [1-4] and modified from 5. In particular, a H-minima transform (also on Pycuda) is used to reduce over-segmentation.
 
 Sample usage:
 ```
@@ -25,9 +25,13 @@ This general script can render various boxes such as distance transform, ionizat
 isosurface.py 
 ```
 This script renders a single descendant bubble and its progenitors at each redshift slice, from the watershed and MergerTree output files. 
+
 ```VR_bubbles```
 Renders 3D VR-goggle style movies. 
 ![result](animation.gif)
+
+## IO
+```tocmfastpy```  is a package that handles reading 21cmFast boxes, it is modified from [[7]]. 
 
 
 **References**
@@ -43,3 +47,5 @@ Renders 3D VR-goggle style movies.
 [[5]](https://github.com/louismullie/watershed-cuda/blob/master/ws_gpu.py) ws_gpu.py by louismullie
 
 [[6]](https://github.com/andreimesinger/21cmFAST) 21cmFast by Andrei Messinger
+
+[[7]](https://github.com/pritchardjr/tocmfastpy) tocmfastpy by Jonathan Pritchard
