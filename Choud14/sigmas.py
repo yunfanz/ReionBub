@@ -11,10 +11,10 @@ from joblib import Parallel, delayed, Memory
 memory = Memory(cachedir=cachedir, verbose=0)
 import multiprocessing
 num_cores = multiprocessing.cpu_count()
-try:
-    from functools import lru_cache
-except ImportError:
-    from backports.functools_lru_cache import lru_cache
+# try:
+#     from functools import lru_cache
+# except ImportError:
+#     from backports.functools_lru_cache import lru_cache
 
 cosmo = {'baryonic_effects':True,'omega_k_0':0,'omega_M_0':0.315, 'omega_b_0':0.0487, 'n':0.96, 'N_nu':0, 'omega_lambda_0':0.685,'omega_n_0':0., 'sigma_8':0.829,'h':0.673}
 NINT = 200
@@ -227,7 +227,7 @@ if __name__=='__main__':
     memory.clear()
     #lsig = sig0(lrl)
     #import IPython; IPython.embed()
-    #np.savez('sig0',radius=lrl,mass=lml,sig0=lsig)
+    np.savez('sig0',radius=lrl,mass=lml,sig0=lsig)
 
 # lR0min, lR0max = np.log(0.2),np.log(40.)
 # lrlmin = np.log(0.04)
