@@ -64,9 +64,8 @@ def pG(y,av,var):
 	return 1/np.sqrt(2*np.pi*var)*np.exp(-(y-av)**2/2/var)
 def B(z,beta,s):
 	#return Deltac(z)+beta*np.sqrt(s)
-	return 1.686+beta*np.sqrt(s)
+	return 1.686#+beta*np.sqrt(s)
 def Q(m,M0, eps=1.e-6):
-	#return 1.
 	r,R0 = m2R(m), m2R(M0)
 	s,s0 = sig0(r), sig0(R0)
 	sx = SX(r,R0)
@@ -113,21 +112,27 @@ def trapz(x,y):
 # 	#print fact, factint
 # 	return fact*factint
 
-def subgrand_trapz(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z,err=False):
+def test1(s):
 	# EqA8, non-log intervaled integration axis
-	Bb = B(z,b,s)
+	Bb = 1.686
+	nu = Bb/np.sqrt(s)
 	#print 'gamm,epx,q =',gamm,epx,q 
-	meanx = gamm*((Bb-del0*sx/s0)*(1-epx)/q/np.sqrt(s)+Bb*epx/np.sqrt(s))
-	fact = V/Vstar(r)*pG(Bb/np.sqrt(s),meanmu, varmu)   #!!!!
+	r = m2R(S2M(s))
+	gamm = gam(r)
+	meanx = gamm*nu
+	varx = 1-gamm**2
+	V = 4*np.pi*r**3./3.
+	fact = V/Vstar(r)*pG(nu,0., 1.)
 	#print b, Bb/np.sqrt(s),meanmu,varmu,pG(Bb/np.sqrt(s),meanmu, varmu)
 	#print b
 	#x = np.linspace(b*gamm,100.,200)   
 	                       #TUNE
-	x = np.logspace(np.log10(b*gamm),5,200)
-	y = (x/gamm-b)*F(x)*pG(x,meanx,varx)
+	x = np.logspace(-5,5,200)
+	y = (x/gamm)*F(x)*pG(x,meanx,varx)
 	factint = np.trapz(y,x)
 	#print np.log10(b*gamm), fact, factint
-	return fact*factint
+	return fact*factint/2
+
 def _blims(b, y, factor=1.e-6):
 	"""Integration limits used internally by the sigma_r functionp."""
 	maxintegrand = np.max(np.abs(y))
@@ -137,13 +142,13 @@ def _blims(b, y, factor=1.e-6):
 	maxb = np.max(b[highmask])
 	return minb, maxb
 
-def _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z):
+def _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,R0,V,z):
 	y = []
 	for bx in b:
-		newy = prob(bx)*subgrand_trapz(bx,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z)/2/s
+		newy = prob(bx)*subgrand_trapz(bx,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,R0,V,z)/2/s
 		if np.isnan(newy): 
 			print 'NAN detected, breaking at: '
-			print bx,prob(bx),del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V
+			print bx,prob(bx),del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,R0,V
 			break
 		else:
 			y.append(newy)
@@ -158,7 +163,7 @@ def integrand_trapz(del0,m,M0,R0,z):  #2s*f_ESP
 	epx,q = epX(m,M0), Q(m,M0)
 	meanmu = del0/np.sqrt(s)*sx/s0
 	varmu = q
-	varx = 1-gamm**2-gamm**2*(1-epx)**2*(1-q)/q 
+	varx = 1-gamm**2
 	#print varmu, varx
 
 	if varx<0:
@@ -167,15 +172,15 @@ def integrand_trapz(del0,m,M0,R0,z):  #2s*f_ESP
 
 	#b = np.arange(0.00001,30.,0.03)                      #TUNE
 	b = np.logspace(-6,3,100)
-	y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z)
+	y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,R0,V,z)
 	if (y==0.).all(): return 0.
 	blims = _blims(b, y)
 	while blims[0] == blims[1]:
 		b = np.logspace(np.log10(blims[0]*0.99),np.log10(blims[1]*1.01),100)
-		y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z)
+		y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,R0,V,z)
 		blims = _blims(b, y)
-	b = np.logspace(np.log10(blims[0]),np.log10(blims[1]),1000)
-	y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z)
+	b = np.logspace(np.log10(blims[0]),np.log10(blims[1]),100)
+	y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,R0,V,z)
 	if y[-1]/np.max(y)>1.E-3: 
 		print "Warning: choice of bmax too small"
 		print y
@@ -223,7 +228,7 @@ def fcoll_trapz_log(del0,M0,z,debug=False):
 	print del0
 	mm = mmin(z)
 	R0 = m2R(M0)
-	mx = np.logspace(np.log10(mm),np.log10(M0),1000)
+	mx = np.logspace(np.log10(mm),np.log10(M0),200)
 	ls = sig0(m2R(mx))
 	y = []
 	for m in mx:
@@ -289,12 +294,12 @@ if __name__ == "__main__":
 					print "root not in range"
 					break
 				else:
-					for ite in xrange(1):
-						i = 0
-						while reslist[i]*reslist[-1]<0: i+=1
-						Dlist2 = np.linspace(Dlist[i-1],Dlist[i],4)
-						reslist = Parallel(n_jobs=NJOBS)(delayed(newfunc)(d0) for d0 in Dlist2)
-						print reslist
+					print "enter second round of process"
+					i = 0
+					while reslist[i]*reslist[-1]<0: i+=1
+					Dlist2 = np.linspace(Dlist[i-1],Dlist[i],8)
+					reslist = Parallel(n_jobs=NJOBS)(delayed(newfunc)(d0) for d0 in Dlist2)
+					print reslist
 					i = 0
 					while reslist[i]*reslist[-1]<0: i+=1
 					resroot = resinterp(Dlist2[i-1],Dlist2[i],reslist[i-1],reslist[i])
