@@ -210,9 +210,10 @@ if __name__ == '__main__':
 
     o = optparse.OptionParser()
     o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
+    o.add_option('-p','--pat', dest='PAT', default='*xH_nohalos_*')
     o.add_option('-o','--out', dest='OUTDIR', default='./NPZ/')
-    
-    files = find_files(DIR, pattern='xH_nohalos_z012*')
+    (opts, args) = o.parse_args()    
+    files = find_files(opts.DIR, pattern=opts.PAT)
     
 
     for path in [files[0]]:
@@ -222,7 +223,7 @@ if __name__ == '__main__':
         #d1 = 1 - b1.box_data#[:252,:252,:252]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
-        OUTFILE = OUTDIR+'dwatershed_z{0}_L{1}_Iter{2}.npz'.format(b1.z, b1.param_dict['BoxSize'], b1.param_dict['Iteration'])
+        OUTFILE = opts.OUTDIR+'dwatershed_z{0}_L{1}_Iter{2}.npz'.format(b1.z, b1.param_dict['BoxSize'], b1.param_dict['Iteration'])
         labels, markers, EDT, smEDT = watershed_3d(d1, h=0.35, target='gpu', connectivity=3, edtfile=OUTFILE)
         Q_a = 1 - b1.param_dict['nf']
         print 'Q', Q_a
