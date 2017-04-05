@@ -87,7 +87,10 @@ def epX(m,M0):
 	sg1m = sig1m(r)
 	sg1mX = sig1mX(r,R0)
 	return s*sg1mX/sx/sg1m
-
+def testqua1(m,M0):
+	return (1-epX(m, M0))/Q(m, M0)
+def testqua2(m,M0):
+	return (1-epX(m, M0))**2/Q(m, M0)
 #def trapz(x,y):
 #	return (x[-1]*y[-1]-x[0]*y[0]+np.sum(x[1:]*y[:-1]-y[1:]*x[:-1]))/2
 def trapz(x,y):

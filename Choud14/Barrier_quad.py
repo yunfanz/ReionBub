@@ -9,16 +9,17 @@ import optparse, sys
 from scipy.optimize import brenth, brentq
 from sigmas import *
 from scipy.ndimage.morphology import binary_dilation
+from scipy.special import erfc
 from joblib import Parallel, delayed
 import multiprocessing
 num_cores = multiprocessing.cpu_count()
 
-o = optparse.OptionParser()
-o.add_option('-d','--del0', dest='del0', default=5.)
-o.add_option('-m','--mul', dest='mul', default=1.)
-o.add_option('-z','--red', dest='red', default=12.)
-opts,args = o.parse_args(sys.argv[1:])
-print opts, args
+# o = optparse.OptionParser()
+# o.add_option('-d','--del0', dest='del0', default=5.)
+# o.add_option('-m','--mul', dest='mul', default=1.)
+# o.add_option('-z','--red', dest='red', default=12.)
+# opts,args = o.parse_args(sys.argv[1:])
+# print opts, args
 
 rhobar = cd.cosmo_densities(**cosmo)[1]  #msun/Mpc
 
@@ -64,31 +65,49 @@ def pG(y,av,var):
 	return 1/np.sqrt(2*np.pi*var)*np.exp(-(y-av)**2/2/var)
 def B(z,beta,s):
 	#return Deltac(z)+beta*np.sqrt(s)
-	return 1.686+beta*np.sqrt(s)
-def Q(m,M0, eps=1.e-6):
+	return Deltac(z)+beta*np.sqrt(s)
+def Q(m,M0, eps=1.e-4):
 	#return 1.
 	r,R0 = m2R(m), m2R(M0)
 	s,s0 = sig0(r), sig0(R0)
 	sx = SX(r,R0)
 	Q = 1-sx**2/s/s0
-	if Q <= 0.:
-		print 'Q {}<0, recompute with quad'.format(Q)
+	if Q <= eps:
+		print 'Q {}<eps={}, recompute with quad'.format(Q, eps)
+		print 'm, M0, r, R0', m, M0, r, R0
 		s,s0 = sig0(r, method='quad'), sig0(R0, method='quad')
 		sx = SX(r,R0, method='quad')
-		Q = 1-sx**2/s/s0
+		Q = 1-sx**2/s/s0 + 1.e-12
 		print 'quad Q=', Q
 		if Q <= 0: raise(Exception)
 	#print m, M0, Q
 	return Q
 
+
+def oepX(m, M0):
+	r,R0 = m2R(m), m2R(M0)
+	s,s0 = sig0(r), sig0(R0)
+	sx = SX(r,R0)
+	dsx = SX(1.0005*r, R0)-SX(0.9995*r, R0)
+	ds = sig0(1.0005*r) - sig0(0.9995*r)
+	return 2*s/sx*dsx/ds
 def epX(m,M0):
+	#return oepX(m, M0)
 	r,R0 = m2R(m), m2R(M0)
 	s,s0 = sig0(r), sig0(R0)
 	sx = SX(r,R0)
 	sg1m = sig1m(r)
 	sg1mX = sig1mX(r,R0)
-	return s*sg1mX/sx/sg1m
+	return (s*sg1mX/sx/sg1m)
 
+
+def get_varx(gamm, epx, q):
+	res = 1-gamm**2-gamm**2*(1-epx)**2*(1-q)/q 
+	if res <= 0. or q< 1.e-9:
+		print 'VARX: Small q, asymptoting second term', gamm**2*(1-epx)**2, q 
+		return 1-gamm**2 * (1 + 0.)
+	else:
+		return res
 #def trapz(x,y):
 #	return (x[-1]*y[-1]-x[0]*y[0]+np.sum(x[1:]*y[:-1]-y[1:]*x[:-1]))/2
 def trapz(x,y):
@@ -158,12 +177,8 @@ def integrand_trapz(del0,m,M0,R0,z):  #2s*f_ESP
 	epx,q = epX(m,M0), Q(m,M0)
 	meanmu = del0/np.sqrt(s)*sx/s0
 	varmu = q
-	varx = 1-gamm**2-gamm**2*(1-epx)**2*(1-q)/q 
+	varx = get_varx(gamm, epx, q)
 	#print varmu, varx
-
-	if varx<0:
-		print "varx<0, breaking at varx, gamm, epx, q,m,M0="
-		print varx, gamm, epx, q, m, M0
 
 	#b = np.arange(0.00001,30.,0.03)                      #TUNE
 	b = np.logspace(-6,3,100)
@@ -174,7 +189,7 @@ def integrand_trapz(del0,m,M0,R0,z):  #2s*f_ESP
 		b = np.logspace(np.log10(blims[0]*0.99),np.log10(blims[1]*1.01),100)
 		y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z)
 		blims = _blims(b, y)
-	b = np.logspace(np.log10(blims[0]),np.log10(blims[1]),1000)
+	b = np.logspace(np.log10(blims[0]),np.log10(blims[1]),200)
 	y = _integrand_trapz_y(b,del0,s,s0,sx,epx,q,meanmu,varmu,varx,gamm,r,V,z)
 	if y[-1]/np.max(y)>1.E-3: 
 		print "Warning: choice of bmax too small"
@@ -223,7 +238,7 @@ def fcoll_trapz_log(del0,M0,z,debug=False):
 	print del0
 	mm = mmin(z)
 	R0 = m2R(M0)
-	mx = np.logspace(np.log10(mm),np.log10(M0),1000)
+	mx = np.logspace(np.log10(mm),np.log10(M0),200)
 	ls = sig0(m2R(mx))
 	y = []
 	for m in mx:
@@ -234,7 +249,13 @@ def fcoll_trapz_log(del0,M0,z,debug=False):
 		#print ls[::-1],y[::-1]
 		return trapz(ls[::-1],y[::-1])
 
-
+def fcoll_FZH(del0,M0,z,debug=False):
+	# Eq. (6)
+	print del0
+	mm = mmin(z)
+	R0 = m2R(M0)
+	smin, S0 = sig0(m2R(mm)), sig0(R0)
+	return erfc((Deltac(z)-del0)/np.sqrt(2*(smin-S0)))
 	
 
 #
@@ -254,7 +275,8 @@ if __name__ == "__main__":
 	Z = 12.
 	#M0 = zeta*mmin(Z)
 	#Mlist = np.exp(np.linspace(np.log(M0),np.log(1000*M0),10))
-	Slist = np.arange(5.,6.,1.)
+	#Slist = np.arange(5.,6.,1.)
+	Slist = np.logspace(-1, np.log10(15.), 6)
 	Mlist = S2M(Slist)
 	
 	#dlist = np.linspace(8,10,16)
@@ -276,11 +298,12 @@ if __name__ == "__main__":
 	elif True:
 		try:
 			rootlist = []
-			for M0 in Mlist:
+			for xind, M0 in enumerate(Mlist):
 				def newfunc(del0):
-					res = fcoll_trapz_log(del0,M0,Z)*40-1
+					res = fcoll_trapz_log(del0,M0,Z)*zeta-1
+					#res = fcoll_FZH(del0,M0,Z)*40-1
 					return res
-				Dlist = np.linspace(3.,20.,4)
+				Dlist = np.linspace(3.,15.,4)
 				NJOBS = min(Dlist.size, num_cores)
 				reslist = Parallel(n_jobs=NJOBS)(delayed(newfunc)(d0) for d0 in Dlist)
 				print reslist
@@ -298,12 +321,15 @@ if __name__ == "__main__":
 					i = 0
 					while reslist[i]*reslist[-1]<0: i+=1
 					resroot = resinterp(Dlist2[i-1],Dlist2[i],reslist[i-1],reslist[i])
-					print 'Barrier height:', resroot
+					print 'Barrier height at {}: {}'.format(Slist[xind], resroot)
 					rootlist.append(resroot)
 			print rootlist
 
 			p.figure()
-			p.plot(Slist,rootlist)
+			p.plot(Slist,rootlist, label='z={}'.format(Z))
+			p.xlabel('S0')
+			p.ylabel('B')
+			p.legend()
 			p.savefig('barrier_z{}.png'.format(Z))
 		except:
 			e = sys.exc_info()

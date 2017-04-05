@@ -11,6 +11,7 @@ import seaborn as sns
 import ws3d_gpu, edt_cuda
 from joblib import Parallel, delayed
 from IO_utils import *
+import optparse
 #possibly useful
 #morphology.remove_small_objects
 
@@ -207,9 +208,10 @@ def circle_test():
 
 if __name__ == '__main__':
 
-    DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
-    DIR = argv[1]
-
+    o = optparse.OptionParser()
+    o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
+    o.add_option('-o','--out', dest='OUTDIR', default='./NPZ/')
+    
     files = find_files(DIR, pattern='xH_nohalos_z012*')
     
 
@@ -220,7 +222,7 @@ if __name__ == '__main__':
         #d1 = 1 - b1.box_data#[:252,:252,:252]
         scale = float(b1.param_dict['dim']/b1.param_dict['BoxSize'])
         #OUTFILE = b1.param_dict['basedir']+'/watershed_z{0}.npz'.format(b1.z)
-        OUTFILE = './NPZ/dwatershed_z{0}_L{1}_Iter{2}.npz'.format(b1.z, b1.param_dict['BoxSize'], b1.param_dict['Iteration'])
+        OUTFILE = OUTDIR+'dwatershed_z{0}_L{1}_Iter{2}.npz'.format(b1.z, b1.param_dict['BoxSize'], b1.param_dict['Iteration'])
         labels, markers, EDT, smEDT = watershed_3d(d1, h=0.35, target='gpu', connectivity=3, edtfile=OUTFILE)
         Q_a = 1 - b1.param_dict['nf']
         print 'Q', Q_a

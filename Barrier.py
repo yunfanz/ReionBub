@@ -9,7 +9,7 @@ from tocmfastpy import *
 from skimage import measure, morphology, segmentation
 from Choud14 import *
 import pandas as pd
-
+import optparse
 
 
 def rescale(image, factor):
@@ -26,18 +26,20 @@ def find_deltax(directory, z):
 	return find_files(directory, pattern=pattern)
 
 if __name__=="__main__":
-	DIR = '/home/yunfanz/Data/21cmFast/Boxes/'
+	o = optparse.OptionParser()
+	o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
+	o.add_option('-z','--npz', dest='NPZDIR', default='./NPZ/')
 
 
 	z = 12.00
 	#npzfile = './NPZ/dwatershed_z{}.npz'.format(z)
 	wspattern = 'dwatershed_z{}_L*.npz'.format(z)
-	npzfiles = find_files('./NPZ/', pattern=wspattern)
+	npzfiles = find_files(NPZDIR, pattern=wspattern)
 	deltax_files = find_deltax(DIR, z)
 	dframes = []
 	for i, npzfile in enumerate(npzfiles):
 		npz_params = boxio.parse_filename(npzfile)
-		if npz_params['BoxSize'] < 50:
+		if npz_params['BoxSize'] != 500:
 			continue
 		labels = np.load(npzfile)['labels']
 		scale = np.load(npzfile)['scale']
@@ -68,7 +70,7 @@ if __name__=="__main__":
 		dx = 1/scale
 		L = b1.param_dict['BoxSize']
 		df = pd.DataFrame({'RE':RE, 'deltax':deltax, 'BoxSize': L})
-		#import IPython; IPython.embed()
+		import IPython; IPython.embed()
 		df = df.loc[df['RE'] > max(5*dx, ES.R0min/2)] # 2 is arbitrary, we really want to compare R0L as below
 		#df = df.loc[df['RE'] < L/10]
 		if len(df.index) == 0: continue
