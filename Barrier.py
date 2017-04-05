@@ -21,10 +21,6 @@ def rescale(image, factor):
     new_image = ndimage.interpolation.zoom(image, real_factor, mode='nearest')
     return new_image, real_factor
 
-def find_deltax(directory, z):
-	pattern = 'updated_smoothed_deltax_z0{}'.format(z)+'*'
-	return find_files(directory, pattern=pattern)
-
 if __name__=="__main__":
 	o = optparse.OptionParser()
 	o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
