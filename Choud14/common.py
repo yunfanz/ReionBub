@@ -1,5 +1,6 @@
 from sigmas import *
 import sigmas
+import scipy
 COMMONDIR = os.path.dirname(sigmas.__file__)
 print COMMONDIR
 rhobar = cd.cosmo_densities(**cosmo)[1]  #msun/Mpc
@@ -24,12 +25,13 @@ def S2M(S):
 	return fs2m(S)
 def m2S(m):
 	return sig0(m2R(m))
-def mmin(z,Tvir=1.E4):
+def mmin(z,Tvir=1.E4,cosmo=Planck13):
 	return pb.virial_mass(Tvir,z,**cosmo)
 def Deltac(z):
 	fgrowth = pb.fgrowth(z, cosmo['omega_M_0'])    # = D(z)/D(0)
 	return 1.686/fgrowth
 	#return 1.686*fgrowth  
+	
 def fcoll_FZH(del0,M0,z,debug=False):
 	# Eq. (6)
 	print del0
@@ -37,6 +39,21 @@ def fcoll_FZH(del0,M0,z,debug=False):
 	R0 = m2R(M0)
 	smin, S0 = sig0(m2R(mm)), sig0(R0)
 	return erfc((Deltac(z)-del0)/np.sqrt(2*(smin-S0)))
+def fFZH(S,zeta,B0,B1):
+	res = B0/np.sqrt(2*np.pi*S**3)*np.exp(-B0**2/2/S-B0*B1-B1**2*S/2)
+	return res
+def BFZH(S0,deltac,smin,K):
+	return deltac-np.sqrt(2*(smin-S0))*K
+def BFZHlin(S0,deltac,smin,K):
+	b0 = deltac-K*np.sqrt(2*smin)
+	b1 = K/np.sqrt(2*smin)
+	return b0+b1*S0
+def dlnBFdlnS0(S0,deltac,smin,K,d=0.001):
+	Bp,Bo,Bm = BFZH(S0+d,deltac,smin,K), BFZH(S0,deltac,smin,K), BFZH(S0-d,deltac,smin,K)
+	return S0/Bo*(Bp-Bm)/2/d
+def dlnBFlindlnS0(S0,deltac,smin,K,d=0.001):
+	Bp,Bo,Bm = BFZHlin(S0+d,deltac,smin,K), BFZHlin(S0,deltac,smin,K), BFZHlin(S0-d,deltac,smin,K)
+	return S0/Bo*(Bp-Bm)/2/d
 
 dDoZ = np.load(COMMONDIR+'/theta.npz')
 thetal,DoZl = dDoZ['arr_0'],dDoZ['arr_1']
