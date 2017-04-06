@@ -146,6 +146,7 @@ def integrand_trapz(del0,m,M0,R0,z):  #2s*f_ESP
 	# of A7, divided by 2s; this IS f_ESP
 	s = sig0(m2R(m))
 	V,r,dmdr = pb.volume_radius_dmdr(m,**cosmo)
+	#V *= RcovEul(del0, z)**3 #convert to eulerian volume
 	s,s0,sx = sig0(r), sig0(R0),SX(r,R0)
 	gamm = gam(r)
 	epx,q = epX(m,M0), Q(m,M0)

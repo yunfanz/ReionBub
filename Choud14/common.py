@@ -37,3 +37,49 @@ def fcoll_FZH(del0,M0,z,debug=False):
 	R0 = m2R(M0)
 	smin, S0 = sig0(m2R(mm)), sig0(R0)
 	return erfc((Deltac(z)-del0)/np.sqrt(2*(smin-S0)))
+
+dDoZ = np.load(COMMONDIR+'/theta.npz')
+thetal,DoZl = dDoZ['arr_0'],dDoZ['arr_1']
+ftheta = interp1d(DoZl,thetal,kind='cubic')
+def theta(z,del0):
+	return ftheta(del0/(1+z))
+def RphysoR0(del0,z):
+	th = theta(z,del0)
+	return 3./10/del0*(1-np.cos(th))
+def RcovEul(del0,z):
+	return RphysoR0(del0,z)*(1+z)
+def dlinSdlnR(lnR,d=0.001):
+	res = (np.log(sig0(np.exp(lnR+d)))-np.log(sig0(np.exp(lnR-d))))/d/2
+	return np.abs(res)
+
+Rfile = np.load(COMMONDIR+'/radius_z12.npz')
+R0l,REl = Rfile['arr_0'],Rfile['arr_1']
+fR = interp1d(REl,R0l,kind='cubic')
+def R0Lag(RE, z=12.): 
+	return fR(RE)
+
+class ESets:
+	def __init__(self, cosmo=Planck13, z=12., zeta=40., Tvir=1.E4):
+		self.cosmo = cosmo
+		self.zeta = zeta
+		self.Tvir = Tvir
+		self.z = float(z)
+		self.K = scipy.special.erfinv(1-1./self.zeta)
+		self.update_z(self.z)
+	def update_z(self, z):
+		self.z = z
+		self.deltac = Deltac(self.z)
+		self.mm = mmin(self.z, self.Tvir, self.cosmo) #minimum mass of ionizing source
+		self.M0min = self.mm*self.zeta  # corresponding minimum mass of ionized region
+		self.RLmin = m2R(self.mm) 
+		self.R0min = m2R(self.M0min)
+		self.smin = sig0(self.RLmin)
+		self.S0min = sig0(self.R0min)
+		self.fgrowth = pb.fgrowth(z, self.cosmo['omega_M_0'])
+	def BFZH(self, R0):
+		S0 = sig0(R0)
+		return BFZH(S0,self.deltac,self.smin,self.K)
+	def RcovEul(self, R0):
+		return R0*RcovEul(del0=self.BFZH(R0), z=self.z)
+	def R0(self, RE):
+		return R0Lag(RE, self.z)
