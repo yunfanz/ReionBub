@@ -142,7 +142,8 @@ __global__ void fcoll_kernel(float* fcollapse, float* smoothed, const int w, flo
   float deltac = %(DELTAC)s;
   float smin = %(SMIN)s;
   float fcoll = erfcf((deltac - delta0)/denom);
-  fcollapse[p] = (fcoll<1.0) ? fcoll : 1.0 ;
+  //fcollapse[p] = (fcoll<1.0) ? fcoll : 1.0 ;
+  fcollapse[p] = fcoll;
  }
 __global__ void update_kernel(float* ionized, float* fcollapse, const int w, float denom)
 {
