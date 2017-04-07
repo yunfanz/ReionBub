@@ -90,7 +90,7 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 	if scale is None:
 		scale = param_dict['BoxeSize']/param_dict['HIIdim']
 	dk = 2*np.pi/I.shape[0]*scale#param_dict['BoxSize'] #delta k in inverse Mpc
-	RMAX = np.float32(1.) #in Mpc
+	RMAX = np.float32(Lfactor*1.02) #in Mpc
 	RMIN = np.float32(0.1)
 	mm = mmin(Z, Tvir=1.e4)
 	smin = sig0(m2R(mm))
@@ -176,6 +176,8 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 		start = cu.Event()
 		step1 = cu.Event()
 		step2 = cu.Event()
+		step3 = cu.Event()
+		step4 = cu.Event()
 		end = cu.Event()
 
 		start.record()
@@ -187,24 +189,28 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 		step1.record(); step1.synchronize()
 		
 		HII_filter(delta_d, width, np.int32(fil), R, block=block_size, grid=grid_size)
-
+		step2.record(); step2.synchronize()
 		#import IPython; IPython.embed()
 		fftplan.execute(delta_d, inverse=True)
 
 		# import IPython; IPython.embed()
 
-		step2.record(); step2.synchronize()
+		
 		if not final_step:
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
+			step3.record(); step3.synchronize()
 			fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 			fcoll_d *= fc_mean_ps/fcollmean# #normalize since we used non-linear density
 			#print fcoll_d.dtype
+			step4.record(); step4.synchronize()
 			update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		else:
 			print 'final denom', final_denom
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
+			step3.record(); step3.synchronize()
 			fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 			fcoll_d *= fc_mean_ps/fcollmean
+			step4.record(); step4.synchronize()
 			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		end.record()
 		end.synchronize()
