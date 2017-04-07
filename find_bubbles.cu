@@ -1,12 +1,14 @@
 #define BLOCK_SIZE 8
-
+#include <pycuda-complex.hpp>
+#define E (float) (2.7182818284)
+#define L_FACTOR (float) (0.620350491) // factor relating cube length to filter radius = (4PI/3)^(-1/3)
 // Convert 3D index to 1D index.
 #define INDEX(k,j,i,ld) ((k)*ld*ld + (j) * ld + (i))
 
 // Texture memory for image.
 texture<float,3> img;
 
-// Step 1. Label local minima or flatland as PLATEAU
+// brute force real_tophat kernel
 __global__ void real_tophat_kernel(float* ionized, const int w, float R, float S0)
 {
   int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
@@ -14,7 +16,7 @@ __global__ void real_tophat_kernel(float* ionized, const int w, float R, float S
   int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
   int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
   int p = INDEX(k,j,i,w);
-  if (j >= w || i >= w || k >= w || ionized[p] == 1) return;
+  if (j >= w || i >= w || k >= w || ionized[p] == 1.0) return;
 
   float rsq;
   float deltasum = 0;
@@ -36,7 +38,7 @@ __global__ void real_tophat_kernel(float* ionized, const int w, float R, float S
   float delta0 = deltasum/count;
   float fcoll = 1 - erf((deltac - delta0)/sqrt(2*(smin - S0)));
   //ionized[p] = fcoll* %(ZETA)s;;
-  if (fcoll >= 1/%(ZETA)s) ionized[p] = 1.0;
+  if (fcoll >= 1./%(ZETA)s) ionized[p] = 1.0;
   else { ionized[p] = fcoll * %(ZETA)s; }
  }
  __global__ void k_tophat_kernel(float* ionized, const int w, float R, float S0)
@@ -47,7 +49,7 @@ __global__ void real_tophat_kernel(float* ionized, const int w, float R, float S
 	int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
 	int p = INDEX(k,j,i,w);
 	float ks = pow((9*3.14159/2),1.0/3) / R;
-	if (j >= w || i >= w || k >= w || ionized[p] == 1) return;
+	if (j >= w || i >= w || k >= w || ionized[p] == 1.0) return;
 
 	float rsq, r, y;
 	float deltasum = 0;
@@ -70,7 +72,7 @@ __global__ void real_tophat_kernel(float* ionized, const int w, float R, float S
 	float delta0 = deltasum/count;
 	float fcoll = 1 - erf((deltac - delta0)/sqrt(2*(smin - S0)));
 	//ionized[p] = fcoll* %(ZETA)s;;
-	if (fcoll >= 1/%(ZETA)s) ionized[p] = 1.0;
+	if (fcoll >= 1./%(ZETA)s) ionized[p] = 1.0;
 	else { ionized[p] = fcoll * %(ZETA)s; }
  }
 
@@ -95,7 +97,7 @@ __global__ void real_tophat(float* filter, int w, float R)
 	}
  }
 
- __global__ void k_tophat(float* filter, int w, float ks)
+ __global__ void HII_filter(pycuda::complex<float>* fourierbox, int w, int filter_type, float R)
 {
 	int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
 	int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
@@ -103,32 +105,74 @@ __global__ void real_tophat(float* filter, int w, float R)
 	int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
 	int p = INDEX(k,j,i,w);
 	if (j >= w || i >= w || k >= w) return;
-	float ksq = i*i + j*j + k*k;
-	float vol = 4.0*3.1415926*ks*ks*ks/3.0;
-	if (ksq < ks*ks)
-	{
-		filter[p] = 1./vol;
-	}
-	else
-	{
-		filter[p] = 0;
-	}
- }
+	float k_x, k_y, k_z, k_mag, kR;
+	int hw = w/2; 
+	k_z = (k>hw) ? (k-w)*%(DELTAK)s : k*%(DELTAK)s;
+	k_y = (j>hw) ? (j-w)*%(DELTAK)s : j*%(DELTAK)s;
+	k_x = (i>hw) ? (i-w)*%(DELTAK)s : i*%(DELTAK)s;
 
-__global__ void update_kernel(float* ionized, float* smoothed, const int w, float R, float S0)
+	k_mag = sqrt(k_x*k_x + k_y*k_y + k_z*k_z);
+	kR = k_mag*R; 
+	switch (filter_type) {
+		case 0: // real space top-hat
+		  if (kR > 1e-4){
+		    fourierbox[p] *= 3.0 * (sin(kR)/pow(kR, float(3)) - cos(kR)/pow(kR, float(2)));
+		  }
+		case 1: // k-space top hat
+		  kR *= 0.413566994; // equates integrated volume to the real space top-hat (9pi/2)^(-1/3)
+		  if (kR > 1){
+		    fourierbox[p] = 0;
+		  }
+		case 2: // gaussian
+		  kR *= 0.643; // equates integrated volume to the real space top-hat
+		  fourierbox[p] *= pow(E, float(-kR*kR/2.0));
+ 	}
+}
+__global__ void fcoll_kernel(float* fcollapse, float* smoothed, const int w, float denom)
+{
+  int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
+  int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
+  int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
+  int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
+  int p = INDEX(k,j,i,w); 
+  
+  if (j >= w || i >= w || k >= w) return;
+
+  float delta0 = smoothed[p];
+  float deltac = %(DELTAC)s;
+  float smin = %(SMIN)s;
+  float fcoll = erfcf((deltac - delta0)/denom);
+  fcollapse[p] = (fcoll<1.0) ? fcoll : 1.0 ;
+ }
+__global__ void update_kernel(float* ionized, float* fcollapse, const int w, float denom)
 {
   int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
   int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
   int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
   int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
   int p = INDEX(k,j,i,w);
+  
   if (j >= w || i >= w || k >= w || ionized[p] == 1) return;
 
-  float delta0 = smoothed[p];
-  float deltac = %(DELTAC)s;
-  float smin = %(SMIN)s;
-  float fcoll = 1 - erf((deltac - delta0)/sqrt(2*(smin - S0)));
-  ionized[p] = fcoll;
-  //if (fcoll >= 1/%(ZETA)s) ionized[p] = 1.0;
-  //else if (R==%(RMIN)s) { ionized[p] = fcoll * %(ZETA)s; }
+  float fcoll = fcollapse[p];
+  if (fcoll >= 1/%(ZETA)s) ionized[p] = 1.0;
  }
+
+__global__ void final_kernel(float* ionized, float* fcollapse, const int w, float denom)
+{
+  int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
+  int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
+  int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
+  int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
+  int p = INDEX(k,j,i,w); 
+  
+  if (j >= w || i >= w || k >= w || ionized[p] == 1) return;
+
+  float fcoll = fcollapse[p];
+  //ionized[p] = fcoll;
+  if (fcoll >= 1/%(ZETA)s) ionized[p] = 1.0;
+  else { 
+  	ionized[p] = fcoll * %(ZETA)s; 
+  }
+ }
+
