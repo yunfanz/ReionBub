@@ -35,7 +35,7 @@ if __name__=="__main__":
 	dframes = []
 	for i, npzfile in enumerate(npzfiles):
 		npz_params = boxio.parse_filename(npzfile)
-		if npz_params['BoxSize'] != 500:
+		if npz_params['BoxSize'] != 512:
 			continue
 		labels = np.load(npzfile)['labels']
 		scale = np.load(npzfile)['scale']

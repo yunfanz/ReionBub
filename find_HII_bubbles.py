@@ -86,13 +86,13 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 	Lfactor = 0.620350491
 	Z = param_dict['z']
 	DELTA_R_FACTOR = 1.1
-	
+	print "Using filter_type {}".format(fil)	
 	if scale is None:
 		scale = param_dict['BoxeSize']/param_dict['HIIdim']
 	dk = 2*np.pi/I.shape[0]*scale#param_dict['BoxSize'] #delta k in inverse Mpc
-	RMAX = np.float32(30.) #in Mpc
-	RMIN = np.float32(1.)
-	mm = mmin(Z)
+	RMAX = np.float32(1.) #in Mpc
+	RMIN = np.float32(0.1)
+	mm = mmin(Z, Tvir=1.e4)
 	smin = sig0(m2R(mm))
 	#smin = pb.sigma_r(m2R(mm), Z, **cosmo)[0]
 	deltac = Deltac(Z)
@@ -202,7 +202,7 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 			update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		else:
 			print 'final denom', final_denom
-			fcoll_kernel(fcoll_d, delta_d.real, width, final_denom, block=block_size, grid=grid_size)
+			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 			fcoll_d *= fc_mean_ps/fcollmean
 			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
@@ -224,8 +224,10 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 if __name__ == '__main__':
 	o = optparse.OptionParser()
 	o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
+	o.add_option('-f','--filt', dest='FILTER_TYPE', default=1)
 	(opts, args) = o.parse_args()
-
+	print opts
+	print args
 	z = 12.00
 	files = find_deltax(opts.DIR, z=z)
 	file = files[0]
@@ -234,6 +236,6 @@ if __name__ == '__main__':
 	#d1 = 1 - b1.box_data[::scale, ::scale, ::scale]
 	d1 = b1.box_data#[:256, :256, :256]
 	print d1.shape
-	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=1, visualize=False)
+	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, visualize=False)
 	print ion_field.shape
 	import IPython; IPython.embed()
