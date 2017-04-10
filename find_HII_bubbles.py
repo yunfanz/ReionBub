@@ -85,13 +85,13 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 	zeta = 40.
 	Lfactor = 0.620350491
 	Z = param_dict['z']
-	DELTA_R_FACTOR = 1.1
+	DELTA_R_FACTOR = 1.01
 	print "Using filter_type {}".format(fil)	
 	if scale is None:
 		scale = param_dict['BoxeSize']/param_dict['HIIdim']
 	dk = 2*np.pi/I.shape[0]*scale#param_dict['BoxSize'] #delta k in inverse Mpc
-	RMAX = np.float32(Lfactor*1.02) #in Mpc
-	RMIN = np.float32(0.1)
+	RMAX = np.float32(30) #in Mpc
+	RMIN = np.float32(0.5)
 	mm = mmin(Z, Tvir=1.e4)
 	smin = sig0(m2R(mm))
 	#smin = pb.sigma_r(m2R(mm), Z, **cosmo)[0]
@@ -155,12 +155,13 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 		plt.draw()
 		#plt.colorbar()
 	final_step = False
-	final_denom = 1
-	temparg = 2*(smin - sig0(Lfactor*scale) )
-	if temparg < 0:
-		raise(Exception)
-	else:
-		final_denom = np.sqrt(temparg).astype(np.float32)
+	final_denom = -1
+	if RMIN < Lfactor*scale:
+		temparg = 2*(smin - sig0(Lfactor*scale) )
+		if temparg < 0:
+			raise(Exception)
+		else:
+			final_denom = np.sqrt(temparg).astype(np.float32)
 	while not final_step:
 		print 'R={} Mpc'.format(R)
 		if (R/DELTA_R_FACTOR) <= (Lfactor*scale) or ((R/DELTA_R_FACTOR) <= RMIN): #stop if reach either rmin or cell size
@@ -185,6 +186,7 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 
 		delta_d = gpuarray.to_gpu_async(I.astype(np.complex64))
 		fcoll_d = gpuarray.zeros(I.shape, dtype=np.float32)
+		start.synchronize()
 		fftplan.execute(delta_d)
 		step1.record(); step1.synchronize()
 		
@@ -192,7 +194,7 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 		step2.record(); step2.synchronize()
 		#import IPython; IPython.embed()
 		fftplan.execute(delta_d, inverse=True)
-
+		step2.synchronize()
 		# import IPython; IPython.embed()
 
 		
@@ -205,6 +207,7 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 			step4.record(); step4.synchronize()
 			update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		else:
+			if final_denom < 0: final_denom = denom
 			print 'final denom', final_denom
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
