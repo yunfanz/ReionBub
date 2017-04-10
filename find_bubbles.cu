@@ -168,16 +168,55 @@ __global__ void update_kernel(float* ionized, float* fcollapse, const int w)
   int p = INDEX(k,j,i,w);
   float rsq;
   if (j >= w || i >= w || k >= w) return;
+
   if (fcollapse[p] >= 1/%(ZETA)s) 
   {
-  	for (int kk = 0; kk < w; kk++) {
-		for (int jj = 0; jj < w; jj++) {
-			for (int ii = 0; ii < w; ii++){
-				rsq = (ii-i)*(ii-i)+(jj-j)*(jj-j)+(kk-k)*(kk-k);
-				if (rsq < R*R) ionized[INDEX(kk,jj,ii,w)] = 1.0;
+  	if (R > BLOCK_SIZE && false)
+  	{
+  		for (int kk = 0; kk < w; kk++) {
+			for (int jj = 0; jj < w; jj++) {
+				for (int ii = 0; ii < w; ii++){
+					rsq = (ii-i)*(ii-i)+(jj-j)*(jj-j)+(kk-k)*(kk-k);
+					if (rsq < R*R) ionized[INDEX(kk,jj,ii,w)] = 1.0;
+				}
 			}
 		}
-	}
+  	}
+  	else
+  	{
+		__shared__ float s_I[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
+		s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = ionized[p];
+		__syncthreads();
+		int ttx, tty, ttz;
+		int bbx1 = ((i-R)<0) ? 0 : floor(i-R);
+		int bby1 = ((j-R)<0) ? 0 : floor(j-R);
+		int bbz1 = ((k-R)<0) ? 0 : floor(k-R);
+		int bbx2 = ((i+R)>w) ? w : ceil(i+R);
+		int bby2 = ((j+R)>w) ? w : ceil(j+R);
+		int bbz2 = ((k+R)>w) ? w : ceil(k+R);
+
+		for (int kk = bbz1; kk < bbz2; kk++) {
+			for (int jj = bby1; jj < bby2; jj++) {
+				for (int ii = bbx1; ii < bbx2; ii++){
+					rsq = (ii-i)*(ii-i)+(jj-j)*(jj-j)+(kk-k)*(kk-k);
+					if (rsq < R*R) {
+						ttx = ii - bdx * bx;  tty = jj - bdy * by; ttz = kk - bdz * bz;
+						if (ttx<0 || tty<0 || ttz<0 ||
+						    ttx>=bdx || tty>=bdy || ttz>=bdz) {
+						    	ionized[INDEX(kk,jj,ii,w)] = 1.0;
+						    }
+						else {
+							s_I[INDEX(ttz,tty,ttx,BLOCK_SIZE)] = 1.0;
+						}
+					}
+				}
+			}
+		}
+		__syncthreads();
+		if (s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] > 0) { ionized[p] = 1.0; }
+
+  	}
+
  }
 }
 

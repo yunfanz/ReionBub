@@ -85,7 +85,7 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	zeta = 40.
 	Lfactor = 0.620350491
 	Z = param_dict['z']
-	DELTA_R_FACTOR = 1.01
+	DELTA_R_FACTOR = 1.1
 	print "Using filter_type {}".format(fil)	
 	if scale is None:
 		scale = param_dict['BoxeSize']/param_dict['HIIdim']
