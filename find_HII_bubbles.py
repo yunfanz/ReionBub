@@ -80,7 +80,7 @@ def conv(delta_d, filt_d, shape, fil):
 	plan.execute(smoothed_d, inverse=True)
 	return smoothed_d.real
 
-def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
+def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	"""uses fft convolution"""
 	zeta = 40.
 	Lfactor = 0.620350491
@@ -111,6 +111,7 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 	main_module = nvcc.SourceModule(kernel_code)
 	fcoll_kernel = main_module.get_function("fcoll_kernel")
 	update_kernel = main_module.get_function("update_kernel")
+	update_sphere_kernel = main_module.get_function("update_sphere_kernel")
 	final_kernel = main_module.get_function("final_kernel")
 	HII_filter = main_module.get_function("HII_filter")
 	# Get contiguous image + shape.
@@ -205,7 +206,10 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 			fcoll_d *= fc_mean_ps/fcollmean# #normalize since we used non-linear density
 			#print fcoll_d.dtype
 			step4.record(); step4.synchronize()
-			update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
+			if update == 0:
+				update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
+			else:
+				update_sphere_kernel(ionized_d, fcoll_d, width, R, block=block_size, grid=grid_size)
 		else:
 			if final_denom < 0: final_denom = denom
 			print 'final denom', final_denom
@@ -233,7 +237,8 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, visualize=False):
 if __name__ == '__main__':
 	o = optparse.OptionParser()
 	o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
-	o.add_option('-f','--filt', dest='FILTER_TYPE', default=1)
+	o.add_option('-f','--filt', dest='FILTER_TYPE', default=1) #0: rtophat; 1: ktophat, 2: Gaussian
+	o.add_option('-u','--upd', dest='UPDATE_TYPE', default=0) #0: center pixel, 1: sphere painting
 	(opts, args) = o.parse_args()
 	print opts
 	print args
@@ -243,8 +248,8 @@ if __name__ == '__main__':
 	b1 = boxio.readbox(file)
 	scale = 1
 	#d1 = 1 - b1.box_data[::scale, ::scale, ::scale]
-	d1 = b1.box_data#[:256, :256, :256]
+	d1 = b1.box_data[:256, :256, :256]
 	print d1.shape
-	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, visualize=False)
+	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, visualize=False)
 	print ion_field.shape
 	import IPython; IPython.embed()

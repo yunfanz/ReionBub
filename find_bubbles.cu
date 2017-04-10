@@ -145,7 +145,7 @@ __global__ void fcoll_kernel(float* fcollapse, float* smoothed, const int w, flo
   //fcollapse[p] = (fcoll<1.0) ? fcoll : 1.0 ;
   fcollapse[p] = fcoll;
  }
-__global__ void update_kernel(float* ionized, float* fcollapse, const int w, float denom)
+__global__ void update_kernel(float* ionized, float* fcollapse, const int w)
 {
   int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
   int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
@@ -158,6 +158,28 @@ __global__ void update_kernel(float* ionized, float* fcollapse, const int w, flo
   float fcoll = fcollapse[p];
   if (fcoll >= 1/%(ZETA)s) ionized[p] = 1.0;
  }
+
+ __global__ void update_sphere_kernel(float* ionized, float* fcollapse, const int w, float R)
+{
+  int tx = threadIdx.x;  int ty = threadIdx.y; int tz = threadIdx.z;
+  int bx = blockIdx.x;   int by = blockIdx.y; int bz = blockIdx.z;
+  int bdx = blockDim.x;  int bdy = blockDim.y; int bdz = blockDim.z;
+  int i = bdx * bx + tx; int j = bdy * by + ty; int k = bdz * bz + tz;
+  int p = INDEX(k,j,i,w);
+  float rsq;
+  if (j >= w || i >= w || k >= w) return;
+  if (fcollapse[p] >= 1/%(ZETA)s) 
+  {
+  	for (int kk = 0; kk < w; kk++) {
+		for (int jj = 0; jj < w; jj++) {
+			for (int ii = 0; ii < w; ii++){
+				rsq = (ii-i)*(ii-i)+(jj-j)*(jj-j)+(kk-k)*(kk-k);
+				if (rsq < R*R) ionized[INDEX(kk,jj,ii,w)] = 1.0;
+			}
+		}
+	}
+ }
+}
 
 __global__ void final_kernel(float* ionized, float* fcollapse, const int w, float denom)
 {
