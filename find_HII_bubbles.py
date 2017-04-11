@@ -39,9 +39,9 @@ def find_bubbles(I, scale=1., fil='kspace'):
 
 	# Get block/grid size for steps 1-3.
 	block_size =  (8,8,8)
-	grid_size =   (width/(block_size[0]-2)+1,
-				height/(block_size[0]-2)+1,
-				depth/(block_size[0]-2)+1)
+	grid_size =   (width/(block_size[0])+1,
+				height/(block_size[0])+1,
+				depth/(block_size[0])+1)
 	 # Initialize variables.
 	ionized       = np.zeros([height,width,depth]) 
 	ionized       = np.float32(ionized)
@@ -119,11 +119,11 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	HII_TOT_NUM_PIXELS = height*width*depth
 	
 	
-	# Get block/grid size for steps 1-3.
+	# Get block/grid size make sure divisible (currrently only power of 2 so ok)
 	block_size =  (8,8,8)
-	grid_size =   (width/(block_size[0]-2)+1,
-				height/(block_size[0]-2)+1,
-				depth/(block_size[0]-2)+1)
+	grid_size =   (width/(block_size[0]),
+				height/(block_size[0]),
+				depth/(block_size[0]))
 	 # Initialize variables.
 	ionized       = np.zeros([height,width,depth]) 
 	ionized       = np.float32(ionized)
@@ -141,15 +141,15 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	fftplan = Plan(I.shape, dtype=np.complex64)
 	R = RMAX
 
-	if visualize:
+	if visualize is not None:
 		fig = plt.figure(figsize=(12,12))
-		ax = fig.add_subplot(111)
-		fig.suptitle(" PyCUDA")
-		ax.set_title('title')
-		plt.subplot(121)
+		ax1 = fig.add_subplot(121)
+		fig.suptitle(" Smoothed Density and Ionization")
+		ax1.set_title('Density')
 		mydelta = plt.imshow(delta_d.get().real[width/2])
 		plt.colorbar()
-		plt.subplot(122)
+		ax2 = fig.add_subplot(122)
+		ax2.set_title('Ionization')
 		myion = plt.imshow(np.ones_like(I)[width/2])
 		plt.colorbar()
 		plt.pause(.01)
@@ -221,10 +221,10 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		end.record()
 		end.synchronize()
-		if visualize:
+		if visualize is not None:
 			mydelta.set_data(delta_d.real.get()[width/2])
 			myion.set_data(ionized_d.get()[width/2])
-			ax.set_title('R = %f'%(R))
+			ax1.set_title('R = %f'%(R))
 			plt.pause(.01)
 			plt.draw()
 
@@ -250,6 +250,6 @@ if __name__ == '__main__':
 	#d1 = 1 - b1.box_data[::scale, ::scale, ::scale]
 	d1 = b1.box_data[:256, :256, :256]
 	print d1.shape
-	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, visualize=False)
+	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, visualize='gif')
 	print ion_field.shape
 	import IPython; IPython.embed()

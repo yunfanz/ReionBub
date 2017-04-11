@@ -52,4 +52,4 @@ if __name__=='__main__':
 	o.add_option('-r','--rows', dest='NROWS', default=1)
 	(opts, args) = o.parse_args()
 	files = find_files(opts.DIR, pattern='dwatershed_z12*Iter0*')
-	sample(files, mode='labels', ncols=NCOLS)
+	sample(files, mode='labels', ncols=opts.NCOLS)
