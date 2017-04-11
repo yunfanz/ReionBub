@@ -24,7 +24,7 @@ def sample(files, layer=100, mode='labels', ncols=3, nrows=0):
 		img = np.load(file)[mode][:,layer]
 		plt.imshow(img, cmap=cmap)
 		plt.title(file.split('/')[-1])
-		plt.show
+		plt.show()
 		return
 	else:
 
