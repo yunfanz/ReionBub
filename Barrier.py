@@ -86,7 +86,8 @@ if __name__=="__main__":
 
 	plt.figure()
 	plt.plot(SL, bfzh, 'r', linewidth=3)
-	sns.regplot('S','deltax', df)#, scatter_kws={'hue': "BoxSize"})
+	#sns.regplot('S','deltax', df)#, scatter_kws={'hue': "BoxSize"})
+	sns.jointplot(x='S', y="deltax", data=df, kind="reg")
 	plt.show()
 
 
