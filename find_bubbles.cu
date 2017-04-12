@@ -190,7 +190,7 @@ __global__ void update_kernel(float* ionized, float* fcollapse, const int w)
 		}
 
   	}
-  	else  //using shared memory
+  	else  //using shared memory, doesn't seem to help much
   	{
 		__shared__ float s_I[BLOCK_SIZE*BLOCK_SIZE*BLOCK_SIZE];
 		s_I[INDEX(tz,ty,tx,BLOCK_SIZE)] = ionized[p];

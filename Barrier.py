@@ -83,11 +83,10 @@ if __name__=="__main__":
 	bfzh = BFZH(SL,ES.deltac,ES.smin,ES.K)
 
 	#import IPython; IPython.embed()
-
-	plt.figure()
+	sns.jointplot(x='S', y="deltax", data=df, kind="reg")
 	plt.plot(SL, bfzh, 'r', linewidth=3)
 	#sns.regplot('S','deltax', df)#, scatter_kws={'hue': "BoxSize"})
-	sns.jointplot(x='S', y="deltax", data=df, kind="reg")
+	
 	plt.show()
 
 

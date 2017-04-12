@@ -17,7 +17,7 @@ try:
 except ImportError:
     from backports.functools_lru_cache import lru_cache
 
-Planck13 = {'baryonic_effects':True,'omega_k_0':0,'omega_M_0':0.315, 'omega_b_0':0.0487, 'n':0.96, 'N_nu':0, 'omega_lambda_0':0.685,'omega_n_0':0., 'sigma_8':0.829,'h':0.673}
+Planck13 = {'baryonic_effects':False,'omega_k_0':0,'omega_M_0':0.315, 'omega_b_0':0.0487, 'n':0.96, 'N_nu':0, 'omega_lambda_0':0.685,'omega_n_0':0., 'sigma_8':0.829,'h':0.673}
 cosmo = Planck13
 NINT = 1000
 

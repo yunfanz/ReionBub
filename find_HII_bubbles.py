@@ -18,6 +18,7 @@ def find_bubbles(I, scale=1., fil='kspace'):
 	smin = sig0(m2R(mm))
 	deltac = Deltac(Z)
 	fgrowth = deltac/1.686
+	fgrowth = pb.fgrowth(Z, cosmo['omega_M_0'], unnormed=True)
 	"""find bubbbles for deltax box I"""
 	kernel_source = open("find_bubbles.cu").read()
 	kernel_code = kernel_source % {
@@ -96,7 +97,8 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	smin = sig0(m2R(mm))
 	#smin = pb.sigma_r(m2R(mm), Z, **cosmo)[0]
 	deltac = Deltac(Z)
-	fgrowth = deltac/1.686
+	#fgrowth = deltac/1.686
+	fgrowth = 1./pb.fgrowth(Z, cosmo['omega_M_0'], unnormed=True)
 	fc_mean_ps = pb.collapse_fraction(np.sqrt(smin), deltac).astype(np.float32)  #mean collapse fraction of universe
 	print fc_mean_ps
 	"""find bubbbles for deltax box I"""
@@ -139,10 +141,10 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	# cu.bind_array_to_texref(I_cu, image_texture)
 
 	fftplan = Plan(I.shape, dtype=np.complex64)
-	R = RMAX
+	R = RMAX; cnt = 0
 
 	if visualize is not None:
-		fig = plt.figure(figsize=(12,12))
+		fig = plt.figure()
 		ax1 = fig.add_subplot(121)
 		fig.suptitle(" Smoothed Density and Ionization")
 		ax1.set_title('Density')
@@ -152,8 +154,12 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 		ax2.set_title('Ionization')
 		myion = plt.imshow(np.ones_like(I)[width/2])
 		plt.colorbar()
-		plt.pause(.01)
-		plt.draw()
+		if visualize == 'draw':
+			plt.pause(.01)
+			plt.draw()
+		else:
+			plt.savefig('tmp/{0:03d}.png'.format(cnt))
+
 		#plt.colorbar()
 	final_step = False
 	final_denom = -1
@@ -225,11 +231,15 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 			mydelta.set_data(delta_d.real.get()[width/2])
 			myion.set_data(ionized_d.get()[width/2])
 			ax1.set_title('R = %f'%(R))
-			plt.pause(.01)
-			plt.draw()
+			if visualize == 'draw':
+				plt.pause(.01)
+				plt.draw()
+			else:
+				plt.savefig('tmp/{0:03d}.png'.format(cnt))
 
 
 		R = R/DELTA_R_FACTOR
+		cnt +=1 
 
 	ionized = ionized_d.get()
 	return ionized
@@ -250,6 +260,7 @@ if __name__ == '__main__':
 	#d1 = 1 - b1.box_data[::scale, ::scale, ::scale]
 	d1 = b1.box_data[:256, :256, :256]
 	print d1.shape
-	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, visualize='gif')
+	
+	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, visualize=None)
 	print ion_field.shape
 	import IPython; IPython.embed()
