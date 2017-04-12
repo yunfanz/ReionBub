@@ -18,7 +18,7 @@ def find_bubbles(I, scale=1., fil='kspace'):
 	smin = sig0(m2R(mm))
 	deltac = Deltac(Z)
 	fgrowth = deltac/1.686
-	fgrowth = pb.fgrowth(Z, cosmo['omega_M_0'], unnormed=True)
+	#fgrowth = pb.fgrowth(Z, cosmo['omega_M_0'], unnormed=True)
 	"""find bubbbles for deltax box I"""
 	kernel_source = open("find_bubbles.cu").read()
 	kernel_code = kernel_source % {
@@ -81,11 +81,11 @@ def conv(delta_d, filt_d, shape, fil):
 	plan.execute(smoothed_d, inverse=True)
 	return smoothed_d.real
 
-def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
+def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visualize=False):
 	"""uses fft convolution"""
 	zeta = 40.
 	Lfactor = 0.620350491
-	Z = param_dict['z']
+	# Z = param_dict['z']
 	DELTA_R_FACTOR = 1.1
 	print "Using filter_type {}".format(fil)	
 	if scale is None:
@@ -97,8 +97,8 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	smin = sig0(m2R(mm))
 	#smin = pb.sigma_r(m2R(mm), Z, **cosmo)[0]
 	deltac = Deltac(Z)
-	#fgrowth = deltac/1.686
-	fgrowth = 1./pb.fgrowth(Z, cosmo['omega_M_0'], unnormed=True)
+	fgrowth = np.float32(deltac/1.686)
+	#fgrowth = 1./pb.fgrowth(Z, cosmo['omega_M_0'], unnormed=True)
 	fc_mean_ps = pb.collapse_fraction(np.sqrt(smin), deltac).astype(np.float32)  #mean collapse fraction of universe
 	print fc_mean_ps
 	"""find bubbbles for deltax box I"""
@@ -130,7 +130,9 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 	ionized       = np.zeros([height,width,depth]) 
 	ionized       = np.float32(ionized)
 	width         = np.int32(width)
-	I             = np.float32(I.copy()*fgrowth) #linearly extrapolate the non-linear density to present?
+	I             = np.float32(I.copy()) 
+	if not LE:
+		I *= fgrowth #linearly extrapolate the non-linear density to present
 	#filt          = np.ones_like(I)
 
 
@@ -202,16 +204,16 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 		#import IPython; IPython.embed()
 		fftplan.execute(delta_d, inverse=True)
 		step2.synchronize()
-		# import IPython; IPython.embed()
+		# 
 
 		
 		if not final_step:
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
-			fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
-			fcoll_d *= fc_mean_ps/fcollmean# #normalize since we used non-linear density
-			#print fcoll_d.dtype
-			step4.record(); step4.synchronize()
+			if not LE:
+				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcoll_d *= fc_mean_ps/fcollmean# #normalize since we used non-linear density
+				step4.record(); step4.synchronize()
 			if update == 0:
 				update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 			else:
@@ -221,9 +223,10 @@ def conv_bubbles(I, param_dict, scale=None, fil=1, update=0, visualize=False):
 			print 'final denom', final_denom
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
-			fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
-			fcoll_d *= fc_mean_ps/fcollmean
-			step4.record(); step4.synchronize()
+			if not LE:
+				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcoll_d *= fc_mean_ps/fcollmean
+				step4.record(); step4.synchronize()
 			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		end.record()
 		end.synchronize()
@@ -249,11 +252,15 @@ if __name__ == '__main__':
 	o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
 	o.add_option('-f','--filt', dest='FILTER_TYPE', default=1) #0: rtophat; 1: ktophat, 2: Gaussian
 	o.add_option('-u','--upd', dest='UPDATE_TYPE', default=0) #0: center pixel, 1: sphere painting
+	o.add_option('-l','--lin', dest='LIN', action="store_true") #whether to use linearly evolved density
 	(opts, args) = o.parse_args()
 	print opts
 	print args
-	z = 12.00
-	files = find_deltax(opts.DIR, z=z)
+	z = 12.0
+	if opts.LIN:
+		files = find_initdeltax(opts.DIR)
+	else:
+		files = find_deltax(opts.DIR, z=z)
 	file = files[0]
 	b1 = boxio.readbox(file)
 	scale = 1
@@ -261,6 +268,6 @@ if __name__ == '__main__':
 	d1 = b1.box_data[:256, :256, :256]
 	print d1.shape
 	
-	ion_field = conv_bubbles(d1, b1.param_dict, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, visualize=None)
+	ion_field = conv_bubbles(d1, b1.param_dict, Z=z, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, LE=opts.LIN, visualize='draw')
 	print ion_field.shape
 	import IPython; IPython.embed()

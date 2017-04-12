@@ -14,7 +14,11 @@ def find_files(directory, pattern='watershed_*.npz'):
     return np.sort(files)
 
 def find_deltax(directory, z):
-    pattern = 'updated_smoothed_deltax_z0{}'.format(z)+'*'
+    pattern = 'updated_smoothed_deltax_z0{0:.00f}'.format(z)+'*'
+    return find_files(directory, pattern=pattern)
+
+def find_initdeltax(directory):
+    pattern = 'smoothed_deltax_z0.00*'
     return find_files(directory, pattern=pattern)
 
 def save_obj(obj, name ):
