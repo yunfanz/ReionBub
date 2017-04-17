@@ -62,7 +62,7 @@ def find_bubbles(I, scale=1., fil='kspace'):
 		start = cu.Event()
 		end = cu.Event()
 		start.record()
-		kernel(ionized_d, width, Rpix, S0, block=block_size, grid=grid_size)
+		kernel(ionized_d, width, Rpix, S0, block=block_size, grid=HII_grid_size)
 		end.record()
 		end.synchronize()
 		R *= (1./1.5)
