@@ -10,4 +10,4 @@ files = find_files('./tmp', pattern="*.png")
 # 	writer.append_data(image)
 # writer.close()
 images = [io.imread(file) for file in files]
-io.mimsave('smooth.mp4', images)
+io.mimsave('smooth.gif', images)
