@@ -211,7 +211,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
 			if not LE:
-				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 				fcoll_d *= fc_mean_ps/fcollmean# #normalize since we used non-linear density
 				step4.record(); step4.synchronize()
 			if update == 0:
@@ -224,7 +224,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
 			if not LE:
-				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 				fcoll_d *= fc_mean_ps/fcollmean
 				step4.record(); step4.synchronize()
 			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
@@ -265,9 +265,9 @@ if __name__ == '__main__':
 	b1 = boxio.readbox(file)
 	scale = 1
 	#d1 = 1 - b1.box_data[::scale, ::scale, ::scale]
-	d1 = b1.box_data[:256, :256, :256]
+	d1 = b1.box_data#[:256, :256, :256]
 	print d1.shape
 	
-	ion_field = conv_bubbles(d1, b1.param_dict, Z=z, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, LE=opts.LIN, visualize='draw')
+	ion_field = conv_bubbles(d1, b1.param_dict, Z=z, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, LE=opts.LIN, visualize=None)
 	print ion_field.shape
 	import IPython; IPython.embed()

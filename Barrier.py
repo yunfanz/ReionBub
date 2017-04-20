@@ -31,7 +31,7 @@ if __name__=="__main__":
 	#npzfile = './NPZ/dwatershed_z{}.npz'.format(z)
 	wspattern = 'dwatershed_z{}_L*.npz'.format(z)
 	npzfiles = find_files(opts.NPZDIR, pattern=wspattern)
-	deltax_files = find_deltax(opts.DIR, z)
+	#deltax_files = find_deltax(opts.DIR, z)
 	dframes = []
 	for i, npzfile in enumerate(npzfiles):
 		npz_params = boxio.parse_filename(npzfile)
@@ -42,15 +42,20 @@ if __name__=="__main__":
 		labels = measure.label(labels, connectivity=3)
 
 		#looking for matching deltax file
-		for file in deltax_files:
-			if (boxio.parse_filename(file)['BoxSize'] == npz_params['BoxSize']) and (boxio.parse_filename(file)['Iteration'] == npz_params['Iteration']):
-				deltax_file = file
-				print "Found matching files:", npzfile, deltax_file
-				break
-
+		#for file in deltax_files:
+		#	if (boxio.parse_filename(file)['BoxSize'] == npz_params['BoxSize']) and (boxio.parse_filename(file)['Iteration'] == npz_params['Iteration']):
+		#		deltax_file = file
+		#		print "Found matching files:", npzfile, deltax_file
+		#		break
+		deltax_file = args[0]
 		
-		b1 = boxio.readbox(deltax_file)
-		deltax_image = b1.box_data
+		try:
+			deltax_image = np.load(deltax_file)
+			p_dict = boxio.parse_filename(deltax_file)
+		except:
+			b1 = boxio.readbox(deltax_file)
+			deltax_image = b1.box_data
+			p_dict = b1.param_dict
 		#deltax_image = rescale(deltax_image, 0.5)
 		R = measure.regionprops(labels, intensity_image=deltax_image)
 		print len(R)
@@ -64,7 +69,7 @@ if __name__=="__main__":
 		deltax /= ES.fgrowth
 		
 		dx = 1/scale
-		L = b1.param_dict['BoxSize']
+		L = p_dict['BoxSize']
 		df = pd.DataFrame({'RE':RE, 'deltax':deltax, 'BoxSize': L})
 		#import IPython; IPython.embed()
 		#df = df.loc[df['RE'] > max(5*dx, ES.R0min/2)] # 2 is arbitrary, we really want to compare R0L as below
