@@ -10,7 +10,7 @@ A 3d watershed algorithm is included for segmentation. The watershed algorithm i
 
 Sample usage:
 ```
-python watershed.py /directory/to/21cmFast/Boxes/
+python watershed.py -d /directory/to/21cmFast/Boxes/
 ```
 
 ## MergerTree with ETE3
