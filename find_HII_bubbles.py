@@ -86,7 +86,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 	zeta = 40.
 	Lfactor = 0.620350491
 	# Z = param_dict['z']
-	DELTA_R_FACTOR = 1.1
+	DELTA_R_FACTOR = 1.01
 	print "Using filter_type {}".format(fil)	
 	if scale is None:
 		scale = param_dict['BoxeSize']/param_dict['HIIdim']
@@ -127,8 +127,8 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 				height/(block_size[0]),
 				depth/(block_size[0]))
 	 # Initialize variables.
-	ionized       = np.zeros([height,width,depth]) 
-	ionized       = np.float32(ionized)
+	#ionized       = np.zeros([height,width,depth]) 
+	#ionized       = np.float32(ionized)
 	width         = np.int32(width)
 	I             = np.float32(I.copy()) 
 	if not LE:
@@ -137,7 +137,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 
 
 	# Transfer labels asynchronously.
-	ionized_d = gpuarray.to_gpu_async(ionized)
+	ionized_d = gpuarray.zeros([height,width,depth], dtype=np.float32) 
 	delta_d = gpuarray.to_gpu_async(I)
 	# I_cu = cu.np_to_array(I, order='C')
 	# cu.bind_array_to_texref(I_cu, image_texture)
@@ -193,7 +193,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 		start.record()
 		#smoothed_d = conv(delta_d.astype(np.complex64), I.shape, fil=fil)
 
-		delta_d = gpuarray.to_gpu_async(I.astype(np.complex64))
+		delta_d = gpuarray.to_gpu_async(I).astype(np.complex64)
 		fcoll_d = gpuarray.zeros(I.shape, dtype=np.float32)
 		start.synchronize()
 		fftplan.execute(delta_d)
@@ -203,36 +203,35 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 		step2.record(); step2.synchronize()
 		#import IPython; IPython.embed()
 		fftplan.execute(delta_d, inverse=True)
-		step2.synchronize()
-		# 
 
-		
 		if not final_step:
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
 			if not LE:
-				fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				#fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 				fcoll_d *= fc_mean_ps/fcollmean# #normalize since we used non-linear density
 				step4.record(); step4.synchronize()
 			if update == 0:
 				update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
-			else:
-				update_sphere_kernel(ionized_d, fcoll_d, width, R, block=block_size, grid=grid_size)
+			elif update == 1:
+				update_sphere_kernel(ionized_d, fcoll_d, width, Rpix, block=block_size, grid=grid_size)
 		else:
-			if final_denom < 0: final_denom = denom
+			if (RMIN > Lfactor*scale) or (final_denom < 0): final_denom = denom
 			print 'final denom', final_denom
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
 			if not LE:
-				fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				#fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 				fcoll_d *= fc_mean_ps/fcollmean
 				step4.record(); step4.synchronize()
-			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
+			#final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		end.record()
 		end.synchronize()
 		if visualize is not None:
-			mydelta.set_data(delta_d.real.get()[width/2])
-			myion.set_data(ionized_d.get()[width/2])
+			mydelta.set_data(delta_d[width/2].real.get())
+			myion.set_data(ionized_d[width/2].get())
 			ax1.set_title('R = %f'%(R))
 			if visualize == 'draw':
 				plt.pause(.01)
@@ -251,7 +250,7 @@ if __name__ == '__main__':
 	o = optparse.OptionParser()
 	o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
 	o.add_option('-f','--filt', dest='FILTER_TYPE', default=1) #0: rtophat; 1: ktophat, 2: Gaussian
-	o.add_option('-u','--upd', dest='UPDATE_TYPE', default=0) #0: center pixel, 1: sphere painting
+	o.add_option('-u','--upd', dest='UPDATE_TYPE', default=1) #0: center pixel, 1: sphere painting
 	o.add_option('-l','--lin', dest='LIN', action="store_true") #whether to use linearly evolved density
 	(opts, args) = o.parse_args()
 	print opts
@@ -269,5 +268,4 @@ if __name__ == '__main__':
 	print d1.shape
 	
 	ion_field = conv_bubbles(d1, b1.param_dict, Z=z, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, LE=opts.LIN, visualize=None)
-	print ion_field.shape
 	import IPython; IPython.embed()
