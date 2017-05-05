@@ -231,7 +231,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 				#fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 				fcoll_d *= fc_mean_ps/fcollmean
 				step4.record(); step4.synchronize()
-			#final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
+			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		end.record()
 		end.synchronize()
 		if visualize is not None:
