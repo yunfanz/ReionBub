@@ -59,7 +59,8 @@ if __name__=="__main__":
 		#deltax_image = rescale(deltax_image, 0.5)
 		R = measure.regionprops(labels, intensity_image=deltax_image)
 		print len(R)
-		R = R[:20000]
+		if len(R)> 20000:
+			R = R[:20000]
 		
 		ES = ESets(z=z)
 		RE = np.asarray([r.equivalent_diameter/2 for r in R])/scale

@@ -92,7 +92,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 		scale = param_dict['BoxeSize']/param_dict['HIIdim']
 	dk = 2*np.pi/I.shape[0]*scale#param_dict['BoxSize'] #delta k in inverse Mpc
 	RMAX = np.float32(30) #in Mpc
-	RMIN = np.float32(0.5)
+	RMIN = np.float32(1.)
 	mm = mmin(Z, Tvir=1.e4)
 	smin = sig0(m2R(mm))
 	#smin = pb.sigma_r(m2R(mm), Z, **cosmo)[0]
