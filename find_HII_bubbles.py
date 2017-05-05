@@ -86,7 +86,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 	zeta = 40.
 	Lfactor = 0.620350491
 	# Z = param_dict['z']
-	DELTA_R_FACTOR = 1.01
+	DELTA_R_FACTOR = 1.05
 	print "Using filter_type {}".format(fil)	
 	if scale is None:
 		scale = param_dict['BoxeSize']/param_dict['HIIdim']
@@ -147,12 +147,16 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 
 	if visualize is not None:
 		fig = plt.figure()
-		ax1 = fig.add_subplot(121)
+		ax0 = fig.add_subplot(131)
+		ax0.set_title('Density')
+		mydelta0 = plt.imshow(I.real[width/2])
+		plt.colorbar()
+		ax1 = fig.add_subplot(132)
 		fig.suptitle(" Smoothed Density and Ionization")
-		ax1.set_title('Density')
+		ax1.set_title('smoothed Density')
 		mydelta = plt.imshow(delta_d.get().real[width/2])
 		plt.colorbar()
-		ax2 = fig.add_subplot(122)
+		ax2 = fig.add_subplot(133)
 		ax2.set_title('Ionization')
 		myion = plt.imshow(np.ones_like(I)[width/2])
 		plt.colorbar()
@@ -196,13 +200,14 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 		delta_d = gpuarray.to_gpu_async(I).astype(np.complex64)
 		fcoll_d = gpuarray.zeros(I.shape, dtype=np.float32)
 		start.synchronize()
-		fftplan.execute(delta_d)
-		step1.record(); step1.synchronize()
-		
-		HII_filter(delta_d, width, np.int32(fil), R, block=block_size, grid=grid_size)
-		step2.record(); step2.synchronize()
-		#import IPython; IPython.embed()
-		fftplan.execute(delta_d, inverse=True)
+		if R > 1: # smoothing
+			fftplan.execute(delta_d)
+			step1.record(); step1.synchronize()
+			
+			HII_filter(delta_d, width, np.int32(fil), R, block=block_size, grid=grid_size)
+			step2.record(); step2.synchronize()
+			#import IPython; IPython.embed()
+			fftplan.execute(delta_d, inverse=True)
 
 		if not final_step:
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
