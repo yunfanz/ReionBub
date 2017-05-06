@@ -200,7 +200,7 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 		delta_d = gpuarray.to_gpu_async(I).astype(np.complex64)
 		fcoll_d = gpuarray.zeros(I.shape, dtype=np.float32)
 		start.synchronize()
-		if R > 1: # smoothing
+		if R > 1 or True: # smoothing
 			fftplan.execute(delta_d)
 			step1.record(); step1.synchronize()
 			
@@ -214,23 +214,28 @@ def conv_bubbles(I, param_dict, Z, scale=None, fil=1, update=0, LE=False, visual
 			step3.record(); step3.synchronize()
 			if not LE:
 				#fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
-				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcollmean = gpuarray.sum(fcoll_d).get()/np.float32(HII_TOT_NUM_PIXELS)
 				fcoll_d *= fc_mean_ps/fcollmean# #normalize since we used non-linear density
 				step4.record(); step4.synchronize()
 			if update == 0:
 				update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 			elif update == 1:
 				update_sphere_kernel(ionized_d, fcoll_d, width, Rpix, block=block_size, grid=grid_size)
+			#import IPython; IPython.embed()
 		else:
 			if (RMIN > Lfactor*scale) or (final_denom < 0): final_denom = denom
 			print 'final denom', final_denom
 			fcoll_kernel(fcoll_d, delta_d.real, width, denom, block=block_size, grid=grid_size)
 			step3.record(); step3.synchronize()
 			if not LE:
-				fcollmean = gpuarray.sum(fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
+				fcollmean = gpuarray.sum(fcoll_d).get()/np.float32(HII_TOT_NUM_PIXELS)
 				#fcollmean = gpuarray.sum((1+delta_d.real)*fcoll_d).get()/float(HII_TOT_NUM_PIXELS)
 				fcoll_d *= fc_mean_ps/fcollmean
 				step4.record(); step4.synchronize()
+			if update == 0:
+				update_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
+			elif update == 1:
+				update_sphere_kernel(ionized_d, fcoll_d, width, Rpix, block=block_size, grid=grid_size)
 			final_kernel(ionized_d, fcoll_d, width, block=block_size, grid=grid_size)
 		end.record()
 		end.synchronize()
@@ -264,6 +269,7 @@ if __name__ == '__main__':
 	if opts.LIN:
 		files = find_initdeltax(opts.DIR)
 	else:
+		opts.LIN = False
 		files = find_deltax(opts.DIR, z=z)
 	file = files[0]
 	b1 = boxio.readbox(file)
@@ -271,6 +277,7 @@ if __name__ == '__main__':
 	#d1 = 1 - b1.box_data[::scale, ::scale, ::scale]
 	d1 = b1.box_data#[:256, :256, :256]
 	print d1.shape
+	print opts.UPDATE_TYPE, opts.FILTER_TYPE
 	
-	ion_field = conv_bubbles(d1, b1.param_dict, Z=z, scale=float(scale), fil=opts.FILTER_TYPE, update=opts.UPDATE_TYPE, LE=opts.LIN, visualize=None)
+	ion_field = conv_bubbles(d1, b1.param_dict, Z=z, scale=float(scale), fil=int(opts.FILTER_TYPE), update=int(opts.UPDATE_TYPE), LE=opts.LIN, visualize=None)
 	import IPython; IPython.embed()

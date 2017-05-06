@@ -157,6 +157,7 @@ __global__ void update_kernel(float* ionized, float* fcollapse, const int w)
 
   float fcoll = fcollapse[p];
   if (fcoll >= 1/%(ZETA)s) ionized[p] = 1.0;
+  //ionized[p] = fcoll;
  }
 
  __global__ void update_sphere_kernel(float* ionized, float* fcollapse, const int w, float R)
@@ -240,15 +241,7 @@ __global__ void final_kernel(float* ionized, float* fcollapse, const int w, floa
   
   if (j >= w || i >= w || k >= w || ionized[p] == 1) return;
 
-  float fcoll = fcollapse[p];
-  //ionized[p] = fcoll;
-  if (fcoll >= 1/%(ZETA)s) 
-  {
-  	//ionized[p] = ionized[p]; 
-  	ionized[p] = 1.0;
-  }
-  else { 
-  	ionized[p] = fcoll * %(ZETA)s; 
-  }
+  float fcoll = fcollapse[p]; 
+  ionized[p] = fcoll * %(ZETA)s; 
  }
 

@@ -25,6 +25,7 @@ if __name__=="__main__":
 	o = optparse.OptionParser()
 	o.add_option('-d','--dir', dest='DIR', default='/home/yunfanz/Data/21cmFast/Boxes/')
 	o.add_option('-z','--npz', dest='NPZDIR', default='./NPZ/')
+	o.add_option('-l','--lin', dest='LIN', action="store_true")
 	(opts, args) = o.parse_args()
 
 	z = 12.00
@@ -37,8 +38,9 @@ if __name__=="__main__":
 		npz_params = boxio.parse_filename(npzfile)
 		if npz_params['BoxSize'] != 512:
 			continue
-		labels = np.load(npzfile)['labels']
-		scale = np.load(npzfile)['scale']
+		data = np.load(npzfile)
+		labels = data['labels']
+		scale = data['scale']
 		labels = measure.label(labels, connectivity=3)
 
 		#looking for matching deltax file
@@ -66,7 +68,8 @@ if __name__=="__main__":
 		
 		#R0L = RE
 		deltax = np.asarray([r.mean_intensity for r in R])
-		deltax /= ES.fgrowth
+		if not opts.LIN:
+			deltax /= ES.fgrowth
 		
 		dx = 1/scale
 		L = p_dict['BoxSize']
